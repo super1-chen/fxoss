@@ -3,17 +3,21 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
-	//"path"
+	"path"
+	"time"
 
-	//fxossUtils "github.com/super1-chen/fxoss/utils"
+	fxossUtils "github.com/super1-chen/fxoss/utils"
 )
 
 const (
 	TokenJson = "token.json"
 )
+
+var timeLayout = "2006-01-02 15:04:05"
 
 type Config struct {
 	Host      string `json:"host"`
@@ -21,10 +25,15 @@ type Config struct {
 	ExpiredAt string `json:"expired_at"`
 }
 
+// NewConfig create new config is path is
 func NewConfig(path string) (config *Config, err error) {
-	config = &Config{}
-	err = LoadConfig(path, config)
-	return config, err
+
+	if path != "" {
+		return
+	} else {
+		err = LoadConfig(path, config)
+	}
+	return
 }
 
 func LoadConfig(filename string, conf *Config) error {
@@ -55,9 +64,58 @@ func LoadConfig(filename string, conf *Config) error {
 
 }
 
-func (conf *Config)Save(fileDir string){
-	if _, err := os.Stat(fileDir); os.IsNotExist(err){
-		//TODO NEED ADD LOG PRINT
-		// log.info("create new log)
+func (conf *Config) Update(in io.Reader) error {
+	if err := json.NewDecoder(in).Decode(&conf); err != nil {
+		return fmt.Errorf("update config failed %v", err)
 	}
+	return nil
+}
+
+// Save the config
+func (conf *Config) Save(folderPath, name string) error {
+
+	err := fxossUtils.CreateFolder(folderPath)
+	if err != nil {
+		return err
+	}
+
+	fileName := path.Join(folderPath, name)
+	f, err := os.Create(fileName)
+
+	if err != nil {
+		return fmt.Errorf("create file %s failed %v", fileName, err)
+
+	}
+
+	defer f.Close()
+
+	bytesBuffer, err := json.Marshal(&conf)
+	if err != nil {
+		return fmt.Errorf("json marshal failed %v", err)
+	}
+	f.Write(bytesBuffer)
+	return nil
+}
+
+// IsValid checks config is not expired and contains an expected hostname
+func (conf *Config) IsValid(host string, nowTime time.Time) bool {
+
+	if conf.Host != host {
+		// todo need add a logger in here.
+		return false
+	}
+	if isValid, err := checkTimeValid(conf.ExpiredAt, nowTime); !isValid || err != nil {
+		return false
+	}
+	return true
+}
+
+// checkTimeValid  convert timeStr to time.Time then checks the time whether after the now
+func checkTimeValid(timeStr string, now time.Time) (bool, error) {
+	timeStamp, err := time.Parse(timeLayout, timeStr)
+	if err != nil {
+		fmt.Errorf("parse time %s failed: %v", timeStr, err)
+		return false, err
+	}
+	return timeStamp.After(now), nil
 }

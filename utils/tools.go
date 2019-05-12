@@ -71,3 +71,16 @@ func FormatItem(value, maxValue int64) string {
 
 	return fmt.Sprintf("%v(%v)", valueStr, maxStr)
 }
+
+
+func CreateFolder(folder string) error {
+	_, err := os.Stat(folder)
+	if os.IsNotExist(err){
+		// todo need add a logger
+		// log.info("create new log)
+		if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+			return fmt.Errorf("create fold %s failed %v", folder, err)
+		}
+	}
+	return nil
+}

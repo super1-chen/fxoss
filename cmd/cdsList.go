@@ -27,7 +27,7 @@ var (
 
 )
 
-var longMessage = `Get and show all cds information from oss server
+var longMessage = `Get and show all cds information from fxoss server
 
 Example:
 fxoss cds-list 南京大学

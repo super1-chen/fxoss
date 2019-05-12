@@ -1,5 +1,2 @@
+// TO complete later
 package log
-
-import (
-	"github.com/sirupsen/logrus"
-	)

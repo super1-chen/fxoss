@@ -3,9 +3,10 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"testing"
 	"os/exec"
-	"github.com/bouk/monkey"
+	"os"
 )
 
 func TestFormatItem(t *testing.T) {
@@ -51,6 +52,64 @@ func TestColorPrintln(t *testing.T) {
 	}
 }
 
-func TestErrorPrintlnExit1(t *testing.T) {
+func TestErrorPrintlnExit(t *testing.T) {
 
+	want := "\033[1;32mhello\r\n\033[0m\r\n"
+
+	if os.Getenv("BE_CRASHER") == "1" {
+		out = new(bytes.Buffer) // captured output
+
+		ErrorPrintln("hello", true)
+
+		got := out.(*bytes.Buffer).String()
+
+		if got != want {
+			t.Errorf("want = %q, got %q", want, got)
+		}
+
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=TestErrorPrintlnExit")
+	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && e.Exited() {
+		return
+	}
+	t.Fatalf("process TestErrorPrintlnExit with err %v, want exit status 1", err)
+}
+
+
+
+func TestSuccessPrintln(t *testing.T) {
+
+	want := "\033[1;32mhello\r\n\033[0m\r\n"
+
+	out = new(bytes.Buffer) // captured output
+
+	SuccessPrintln("hello")
+
+	got := out.(*bytes.Buffer).String()
+
+	if got != want {
+		t.Errorf("want = %q, got %q", want, got)
+	}
+
+}
+
+func TestCreateFolder(t *testing.T){
+	defer func(){
+		os.RemoveAll("test")
+	}()
+	err := os.MkdirAll(path.Join("test", "test1"), os.ModePerm)
+	if err != nil {
+		t.Errorf("create test1 folder at setup failed %v", err)
+		return
+	}
+	tests := []string{path.Join("test", "test1"), path.Join("test", "test2"), path.Join("test","test3")}
+	for _, test := range tests{
+		err := CreateFolder(test)
+		if err != nil {
+			t.Errorf("create folder %q failed: %v", test, err)
+		}
+	}
 }
