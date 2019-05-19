@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"path"
+	"strings"
 	"testing"
 	"os/exec"
 	"os"
@@ -111,5 +112,48 @@ func TestCreateFolder(t *testing.T){
 		if err != nil {
 			t.Errorf("create folder %q failed: %v", test, err)
 		}
+	}
+}
+
+func TestPrintTable(t *testing.T){
+	out = new(bytes.Buffer) // captured output
+	headers := []string{"A", "B", "C"}
+	content := [][]string{{"a1", "b1", "c1"}, {"a2", "b2", "c2"}}
+	want := "+----+----+----+\n| A  | B  | C  |\n+----+----+----+\n| a1 | b1 | c1 |\n| a2 | b2 | c2 |\n+----+----+----+\n"
+	PrintTable(headers, content)
+	got := out.(*bytes.Buffer).String()
+	if got != want {
+		t.Errorf("test PrintTable error got != want")
+	}
+}
+
+
+func TestSN2PortSuccess(t *testing.T) {
+	tests := []struct{sn, port string}{
+		{"cas0530001", "40001"},
+		{"cas0510002",  "20002"},
+		{"cas0510302", "20302"},
+	}
+	for _, test := range tests {
+		got, err := SN2Port(test.sn)
+		if err != nil {
+			t.Errorf("func SN2Port failed, %v", err)
+			continue
+		}
+		if got != test.port {
+			t.Errorf("got %s != want %s", got, test.port)
+		}
+	}
+
+}
+
+func TestSN2PortError(t *testing.T) {
+	_, err := SN2Port("cDs0510302")
+	if err == nil {
+		t.Errorf("want err but err == nil")
+		return
+	}
+	if ! strings.Contains(err.Error(), "illegal cds sn") {
+		t.Errorf("get err %v", err)
 	}
 }

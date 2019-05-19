@@ -5,6 +5,9 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 const (
@@ -28,6 +31,7 @@ var Formats = map[string]string{
 	"default": "\033[32m%s\r\n\033[0m\r\n",
 }
 
+// println in different color
 func ColorPrintln(msg, colorInfo string) {
 
 	var format string
@@ -72,10 +76,10 @@ func FormatItem(value, maxValue int64) string {
 	return fmt.Sprintf("%v(%v)", valueStr, maxStr)
 }
 
-
+// create folder by give name if the given folder is not exites
 func CreateFolder(folder string) error {
 	_, err := os.Stat(folder)
-	if os.IsNotExist(err){
+	if os.IsNotExist(err) {
 		// todo need add a logger
 		// log.info("create new log)
 		if err := os.MkdirAll(folder, os.ModePerm); err != nil {
@@ -83,4 +87,24 @@ func CreateFolder(folder string) error {
 		}
 	}
 	return nil
+}
+
+// print ascii table
+func PrintTable(headers []string, content [][]string) {
+	table := tablewriter.NewWriter(out)
+	table.SetHeader(headers)
+	table.AppendBulk(content)
+	table.Render()
+}
+
+// converts sn 2 frpc port
+func SN2Port(sn string) (port string, err error) {
+	if strings.HasPrefix(strings.ToUpper(sn), "CAS053") {
+		port = "40" + sn[len(sn)-3:]
+	} else if strings.HasPrefix(strings.ToUpper(sn), "CAS051") {
+		port = "20" + sn[len(sn)-3:]
+	} else {
+		return port, fmt.Errorf("illegal cds sn %s", sn)
+	}
+	return
 }
