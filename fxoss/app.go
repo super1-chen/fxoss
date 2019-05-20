@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -197,7 +196,7 @@ func (oss *oss) ShowCDSDetail(sn string) error {
 
 	var cdsContent [][]string
 	var nodeContent [][]string
-	cdsHeaders :=  []string{
+	cdsHeaders := []string{
 		"company", "sn", "status", "license_start",
 		"license_end", "online_user(max)", "hit_user(max)",
 		"service_kbps(max)", "cache_kbps(max)",
@@ -307,7 +306,7 @@ func (oss *oss) ShowCDSPort(sn string) error {
 	}
 
 	headers := []string{"company", "ssh_host", "ssh_token"}
-	content :=[][]string{{company, sshHost, sshPort}}
+	content := [][]string{{company, sshHost, sshPort}}
 	utils.PrintTable(headers, content)
 
 	return nil
@@ -323,7 +322,7 @@ func (oss *oss) ShowCDSPort(sn string) error {
 //"ssh_host": "rhelp.fxdata.cn",\n
 //"ssh_port": 36079\n
 //}
-func (oss *oss) getCDSPort(sn string)(*PortInfo, error) {
+func (oss *oss) getCDSPort(sn string) (*PortInfo, error) {
 	api := fmt.Sprintf("/v1/cds/%s", sn)
 	port := new(PortInfo)
 
@@ -339,7 +338,7 @@ func (oss *oss) getCDSPort(sn string)(*PortInfo, error) {
 }
 
 //gets CDS detail infomation
-func (oss *oss) getCDSDetail(sn string)(detail *CdsDetail, err error){
+func (oss *oss) getCDSDetail(sn string) (detail *CdsDetail, err error) {
 
 	api := fmt.Sprintf("/v1/cds/%s", sn)
 	errorMsg := fmt.Sprintf("GET cds detail information with %s failed", sn)
@@ -361,7 +360,7 @@ func (oss *oss) getCDSDetail(sn string)(detail *CdsDetail, err error){
 	return
 }
 
-func (oss *oss) getSSHInfo(sn string, f bool)(company, sshHost string, sshPort int, err error) {
+func (oss *oss) getSSHInfo(sn string, f bool) (company, sshHost string, sshPort int, err error) {
 	detail, err := oss.getCDSDetail(sn)
 	if err == nil {
 		company = detail.CDS.Company
@@ -467,7 +466,7 @@ func (oss *oss) UpdateToken(folderName string) error {
 func (oss *oss) GetNewToken() ([]byte, error) {
 	api := "/v1/auth/tokens"
 
-	data := map[string]string{"username": oss.User, "password": oss.Password,}
+	data := map[string]string{"username": oss.User, "password": oss.Password}
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -479,8 +478,7 @@ func (oss *oss) GetNewToken() ([]byte, error) {
 	return oss.post(api, body, false)
 }
 
-func (oss *oss) sshClient(host string, port, retry int)(*ssh.Client, error) {
-
+func (oss *oss) sshClient(host string, port, retry int) (*ssh.Client, error) {
 
 	Cb := func(user, instruction string, questions []string, echos []bool) (answers []string, err error) {
 		answers = make([]string, len(questions))
