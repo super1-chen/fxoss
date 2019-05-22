@@ -3,6 +3,7 @@ package fxoss
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,18 +17,17 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/super1-chen/fxoss/conf"
 	"github.com/super1-chen/fxoss/utils"
 	"github.com/super1-chen/fxoss/logger"
-	"strings"
 )
 
 // OSS server struct
+
 type OSS struct {
 	User, Password, Host, SSHUser, SSHPassword string
-	Conf                                       *conf.Config
 	HTTPClient                                 *http.Client
 	logger                                     *log.Logger
+	config                                     config
 }
 
 var (
@@ -38,11 +38,12 @@ var (
 	sshPwdKey    = "FXOSS_SSH_PWD"
 	confDirKey   = "FXOSS_DIR"
 	defaultRetry = 3
+	tokenJson    = "token.json"
 )
 
 // NewOssServer create a new oss server for command line tools
-func NewOssServer(now time.Time, verbose bool) (*OSS, error) {
-	o := new(OSS)
+func NewOssServer(now time.Time, verbose bool, config config) (*OSS, error) {
+
 	user, err := envLookUp(userKey)
 	if err != nil {
 		return nil, err
@@ -72,14 +73,17 @@ func NewOssServer(now time.Time, verbose bool) (*OSS, error) {
 	if confDir == "" {
 		confDir = "/tmp"
 	}
-	tokenPath := path.Join(confDir, conf.TokenJSON)
-	o.User = user
-	o.Host = host
-	o.Password = pwd
-	o.SSHUser = sshUser
-	o.SSHPassword = sshPwd
-	o.logger = logger.Mylogger(verbose)
-	o.HTTPClient = &http.Client{Timeout: time.Minute} // set default client timeout 60s
+	tokenPath := path.Join(confDir, tokenJson)
+	o := &OSS{
+		User:        user,
+		Host:        host,
+		Password:    pwd,
+		SSHUser:     sshUser,
+		SSHPassword: sshPwd,
+		HTTPClient:  &http.Client{Timeout: time.Minute},
+		logger:      logger.Mylogger(verbose),
+		config:      config,
+	}
 
 	if _, err = os.Stat(tokenPath); os.IsNotExist(err) {
 		o.logger.Printf("update token")
@@ -88,22 +92,19 @@ func NewOssServer(now time.Time, verbose bool) (*OSS, error) {
 		}
 	}
 
-	conf, err := conf.NewConfig(tokenPath)
-
-	o.logger.Printf("config %+v", conf)
+	o.logger.Printf("config %+v", config)
 	if err != nil {
 		fmt.Printf("%v", err)
 		return nil, err
 	}
 	o.logger.Printf("%s", now)
 
-	if !conf.IsValid(o.Host, now) {
+	if !o.config.IsValid(o.Host, now) {
 		o.logger.Printf("config is invalid update...")
 		o.updateToken(confDir)
 
 	} else {
 		o.logger.Printf("config is valid skip update...")
-		o.Conf = conf
 	}
 
 	return o, nil
@@ -325,7 +326,6 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 	var company, sshHost, sshPort string
 	port, err := oss.getCDSPort(sn)
 
-
 	if err != nil {
 		return err
 	}
@@ -425,7 +425,7 @@ func (oss *OSS) get(api string) ([]byte, error) {
 		return nil, fmt.Errorf("create new get request %s failed %v", api, err)
 	}
 
-	req.Header.Set("X-auth-token", oss.Conf.Token)
+	req.Header.Set("X-auth-token", oss.config.GetToken())
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := oss.HTTPClient.Do(req)
@@ -451,8 +451,8 @@ func (oss *OSS) post(api string, body io.Reader, needToken bool) ([]byte, error)
 		return nil, fmt.Errorf("create new post request %s failed %v", api, err)
 	}
 
-	if needToken && oss.Conf != nil {
-		req.Header.Set("X-auth-token", oss.Conf.Token)
+	if needToken && oss.config != nil {
+		req.Header.Set("X-auth-token", oss.config.GetToken())
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -474,18 +474,28 @@ func (oss *OSS) post(api string, body io.Reader, needToken bool) ([]byte, error)
 
 // updateToken will download a new token from OSS and make a new config of itself
 func (oss *OSS) updateToken(folderName string) error {
-	c := new(conf.Config)
+
 	b, err := oss.getNewToken()
 	if err != nil {
 		return fmt.Errorf("get new token failed %s", err)
 	}
+
 	r := bytes.NewReader(b)
-	c.Update(r)
-	c.Host = oss.Host
-	if err := c.Save(folderName, conf.TokenJSON); err != nil {
-		log.Printf("save token failed %s ", path.Join(folderName, conf.TokenJSON))
+
+	if err = oss.config.Update(r); err != nil {
+		log.Printf("update config failed %v", err)
+		return err
 	}
-	oss.Conf = c
+
+	if err = oss.config.SetHost(oss.Host); err != nil {
+		log.Printf("set host failed %v", err)
+	}
+
+
+	if err = oss.config.Save(folderName, tokenJson); err != nil {
+		log.Printf("save token failed %s ", path.Join(folderName, tokenJson))
+	}
+
 	return nil
 }
 

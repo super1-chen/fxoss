@@ -1,10 +1,9 @@
 package main
 
-
 import (
 	"github.com/super1-chen/fxoss/cmd"
 )
 
-func main(){
+func main() {
 	cmd.Execute()
 }

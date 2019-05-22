@@ -1,5 +1,18 @@
 package fxoss
 
+import (
+	"time"
+	"io"
+)
+
+type config interface {
+	Update(io.Reader) error
+	SetHost(string) error
+	IsValid(string, time.Time) bool
+	GetToken() string
+	Save(string, string) error
+}
+
 type cdsInfo struct {
 	SN             string  `json:"sn"`
 	Company        string  `json:"company"`

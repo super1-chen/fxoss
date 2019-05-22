@@ -13,31 +13,22 @@ import (
 	fxossUtils "github.com/super1-chen/fxoss/utils"
 )
 
-const (
-	TokenJSON = "token.json"
-)
 
 var timeLayout = "2006-01-02 15:04:05"
 
-type Config struct {
+type config struct {
 	Host      string `json:"host"`
 	Token     string `json:"token"`
 	ExpiredAt string `json:"expired_at"`
 }
 
 // NewConfig create new config is path is
-func NewConfig(path string) (*Config, error) {
-	conf := new(Config)
-	if path == "" {
-		return nil, fmt.Errorf("missing config path")
-	}
-	if err := LoadConfig(path, conf); err != nil {
-		return nil, err
-	}
-	return conf, nil
+func NewConfig() *config {
+	return &config{}
 }
 
-func LoadConfig(filename string, conf *Config) error {
+// LoadConfig
+func (conf *config) LoadConfig(filename string) error {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return fmt.Errorf("config file %s doesn't exists\r\n", filename)
 	}
@@ -58,20 +49,23 @@ func LoadConfig(filename string, conf *Config) error {
 		log.Printf("json unmarshal config failed %s\r\n", err)
 		return err
 	}
-
 	return nil
 
 }
 
-func (conf *Config) Update(in io.Reader) error {
+func (conf *config) Update(in io.Reader) error {
 	if err := json.NewDecoder(in).Decode(&conf); err != nil {
 		return fmt.Errorf("update config failed %v", err)
 	}
 	return nil
 }
 
+func (conf *config) SetHost(host string) error {
+
+}
+
 // Save the config
-func (conf *Config) Save(folderPath, name string) error {
+func (conf *config) Save(folderPath, name string) error {
 
 	err := fxossUtils.CreateFolder(folderPath)
 	if err != nil {
@@ -97,7 +91,7 @@ func (conf *Config) Save(folderPath, name string) error {
 }
 
 // IsValid checks config is not expired and contains an expected hostname
-func (conf *Config) IsValid(host string, nowTime time.Time) bool {
+func (conf *config) IsValid(host string, nowTime time.Time) bool {
 
 	if conf.Host != host {
 		// todo need add a logger in here.

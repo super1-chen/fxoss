@@ -21,11 +21,11 @@ func TestConfig_Save(t *testing.T) {
 	}()
 
 	tests := []struct {
-		conf           Config
+		conf           config
 		fileName, want string
 	}{
 		{
-			Config{
+			config{
 				"www.baidu.com",
 				"12345678",
 				"2018-01-01 12:00:00",
@@ -34,7 +34,7 @@ func TestConfig_Save(t *testing.T) {
 			`{"host":"www.baidu.com","token":"12345678","expired_at":"2018-01-01 12:00:00"}`,
 		},
 		{
-			Config{
+			config{
 				"www.youku.com",
 				"1234512345",
 				"2019-01-01 00:00:00",
@@ -59,13 +59,13 @@ func TestConfig_Save(t *testing.T) {
 
 func TestConfig_IsValid(t *testing.T) {
 	tests := []struct {
-		conf Config
+		conf config
 		host string
 		now  time.Time
 		want bool
 	}{
 		{
-			Config{
+			config{
 				"www.youku.com",
 				"1234512345",
 				"2018-01-01 01:00:00",
@@ -75,7 +75,7 @@ func TestConfig_IsValid(t *testing.T) {
 			true,
 		},
 		{
-			Config{
+			config{
 				"www.youku1.com",
 				"1234512345",
 				"2018-01-01 01:00:00",
@@ -85,7 +85,7 @@ func TestConfig_IsValid(t *testing.T) {
 			false,
 		},
 		{
-			Config{
+			config{
 				"www.youku.com",
 				"1234512345",
 				"2018-01-01 01:00:00",
@@ -107,19 +107,19 @@ func TestConfig_Update(t *testing.T) {
 
 	tests := []struct {
 		jsonStr string
-		want    *Config
+		want    *config
 	}{
 		{
 			`{"host":"www.baidu.com","token":"12345678","expired_at":"2018-01-01 12:00:00"}`,
-			&Config{"www.baidu.com", "12345678", "2018-01-01 12:00:00"},
+			&config{"www.baidu.com", "12345678", "2018-01-01 12:00:00"},
 		},
 		{
 			`{"host":"www.baidu.com","token":"12345678","expired_at":""}`,
-			&Config{"www.baidu.com", "12345678", ""},
+			&config{"www.baidu.com", "12345678", ""},
 		},
 	}
 	for _, test := range tests {
-		got := new(Config)
+		got := new(config)
 		r := strings.NewReader(test.jsonStr)
 		got.Update(r)
 
