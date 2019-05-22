@@ -6,39 +6,42 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+
+	"github.com/super1-chen/fxoss/version"
 )
 
 var (
-	DEBUG bool
+	Debug bool
 )
 
 var rootCmd = &cobra.Command{
 	Use:"fxoss",
-	Short: "FXDATA OSS command line tool",
-	Long:"FXDATA OSS command line tool for get list of all cds, show cds detail and ssh login cds server",
-	Run: func(cmd *cobra.Command, args []string){
-		fmt.Println(args)
-		fmt.Println("this is root func")
-	},
+	Short: "fxoss is a command line tool for fxdata Ops team",
+	Long:"fxoss is a command line tool for get cds list, show cds detail and ssh login cds server...",
 }
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.PersistentFlags().BoolVarP(&DEBUG, "debug", "d", false, "Show debug info")
-	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	rootCmd.PersistentFlags().BoolVarP(&Debug, "verbose", "v", false, "run fxoss in verbose mode")
+}
+
+func requiredSN(cmd *cobra.Command, args[]string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("cds sn is required")
+	}
+	return nil
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of Hugo",
-	Long:  `All software has versions. This is Hugo's`,
+	Short: "Print the version number of fxoss",
+	Long:  `All software has versions. This is fxoss's`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hugo Static Site Generator v0.9 -- HEAD")
+		fmt.Println("fxoss version is:", version.Version)
 	},
 }
 
-
+// Execute run the command tool
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

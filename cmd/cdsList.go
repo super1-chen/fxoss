@@ -15,46 +15,50 @@
 package cmd
 
 import (
-	"fmt"
-	//github.com/spf13/cobra/cobra/cmd"
+
+	"time"
 
 	"github.com/spf13/cobra"
-)
 
+	"github.com/super1-chen/fxoss/fxoss"
+	"github.com/super1-chen/fxoss/utils"
+)
 
 var (
 	long *bool
 
 )
 
-var longMessage = `Get and show all cds information from fxoss server
-
-Example:
-fxoss cds-list 南京大学
-fxoss cds-list CAS50444471
-`
-
 // cdsListCmd represents the cdsList command
 var cdsListCmd = &cobra.Command{
 	Use:   "cds-list",
-	Short: "Get cds list",
-	Long: longMessage,
+	Short: "get cds list",
+	Long: `fxoss cds-list show all cds information`,
 	Run: runCDSList,
 	Args: cobra.MaximumNArgs(1),
-
-
+	Example: "fxoss cds-list -l",
 }
 
 func init() {
 	rootCmd.AddCommand(cdsListCmd)
-    long = cdsListCmd.Flags().BoolP("long", "l", false, "show list information as long format")
+    long = cdsListCmd.Flags().BoolP("long", "l", false, "show list information as  format")
 }
 
-
 func runCDSList(cmd *cobra.Command, args []string){
-	if *long == true {
-		fmt.Println("cds-list long called")
-	} else {
-		fmt.Println("cds-list short called")
+	var option string
+	now := time.Now().UTC()
+	app, err := fxoss.NewOssServer(now, Debug)
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+		return
+	}
+
+	if len(args) == 1 {
+		option = args[0]
+	}
+	err = app.ShowCDSList(option, *long)
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+		return
 	}
 }

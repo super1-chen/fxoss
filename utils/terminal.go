@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-type SSHTerminal struct {
+type sshTerminal struct {
 	Session *ssh.Session
 	exitMsg string
 	stdout  io.Reader
@@ -20,7 +20,7 @@ type SSHTerminal struct {
 	stderr  io.Reader
 }
 
-func (t *SSHTerminal) updateTerminalSize() {
+func (t *sshTerminal) updateTerminalSize() {
 	go func() {
 		// SIGWINCH is sent to the process when the window size of the terminal has
 		// changed.
@@ -62,7 +62,7 @@ func (t *SSHTerminal) updateTerminalSize() {
 
 }
 
-func (t *SSHTerminal) interactiveSession() error {
+func (t *sshTerminal) interactiveSession() error {
 
 	defer func() {
 		if t.exitMsg == "" {
@@ -138,19 +138,22 @@ func (t *SSHTerminal) interactiveSession() error {
 	return nil
 }
 
-func RunTerminal(c *ssh.Client) error {
+// RunTerminal run terminal in interactive mode
+func RunTerminal(company string, c *ssh.Client) error {
 	session, err := c.NewSession()
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	s := SSHTerminal{
+	s := sshTerminal{
 		Session: session,
 	}
+	SuccessPrintln(fmt.Sprintf("登陆%q的cds设备", company))
 	return s.interactiveSession()
 }
 
+// RunCommands run give command
 func RunCommands(c *ssh.Client, cmd string) error {
 	return nil
 }

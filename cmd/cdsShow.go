@@ -15,36 +15,35 @@
 package cmd
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/super1-chen/fxoss/fxoss"
+	"github.com/super1-chen/fxoss/utils"
 )
 
 // cdsShowCmd represents the cdsShow command
-var cdsShowCmd = &cobra.Command{
-	Use:   "cdsShow",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("cdsShow called")
-	},
+var cdsShowDetail = &cobra.Command{
+	Use:   "cds-show",
+	Short: "Show cds detail info",
+	Long: `fxoss cds-show sn`,
+	Run: runShowDetail,
+	Args: requiredSN,
 }
 
 func init() {
-	rootCmd.AddCommand(cdsShowCmd)
+	rootCmd.AddCommand(cdsShowDetail)
+}
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// cdsShowCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// cdsShowCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+func runShowDetail(cmd *cobra.Command, args []string){
+	now := time.Now().UTC()
+	app, err := fxoss.NewOssServer(now, Debug)
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+		return
+	}
+	err = app.ShowCDSDetail(args[0])
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+	}
 }

@@ -15,36 +15,44 @@
 package cmd
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/super1-chen/fxoss/fxoss"
+	"github.com/super1-chen/fxoss/utils"
+)
+
+var (
+	r *int
+	frpc *bool
 )
 
 // cdsLoginCmd represents the cdsLogin command
 var cdsLoginCmd = &cobra.Command{
-	Use:   "cdsLogin",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("cdsLogin called")
-	},
+	Use:   "cds-login",
+	Short: "ssh login remote server",
+	Long: `fxoss cds-login sn`,
+	Args: requiredSN,
+	Run: runLoginCDS,
 }
+
 
 func init() {
 	rootCmd.AddCommand(cdsLoginCmd)
+	frpc = cdsLoginCmd.Flags().BoolP("frpc", "F", false, "login cds in frpc mode")
+	r = cdsLoginCmd.Flags().IntP("retry", "r", 3, "retry times of SSH login")
+}
 
-	// Here you will define your flags and configuration settings.
+func runLoginCDS(cmd *cobra.Command, args []string){
+	now := time.Now().UTC()
+	app, err := fxoss.NewOssServer(now, Debug)
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+		return
+	}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// cdsLoginCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// cdsLoginCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	err = app.LoginCDS(args[0], *r, *frpc)
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+	}
 }

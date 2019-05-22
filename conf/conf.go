@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	TokenJson = "token.json"
+	TokenJSON = "token.json"
 )
 
 var timeLayout = "2006-01-02 15:04:05"
@@ -26,14 +26,15 @@ type Config struct {
 }
 
 // NewConfig create new config is path is
-func NewConfig(path string) (config *Config, err error) {
-
-	if path != "" {
-		return
-	} else {
-		err = LoadConfig(path, config)
+func NewConfig(path string) (*Config, error) {
+	conf := new(Config)
+	if path == "" {
+		return nil, fmt.Errorf("missing config path")
 	}
-	return
+	if err := LoadConfig(path, conf); err != nil {
+		return nil, err
+	}
+	return conf, nil
 }
 
 func LoadConfig(filename string, conf *Config) error {
@@ -46,7 +47,6 @@ func LoadConfig(filename string, conf *Config) error {
 	if err != nil {
 		log.Printf("read config %s failed by %v\r\n", filename, err)
 		msg := fmt.Sprintf("read config failed %s\r\n", err)
-		//fxossUtils.ErrorPrintln(msg, false)
 		fmt.Println(msg)
 		return err
 	}
@@ -55,7 +55,6 @@ func LoadConfig(filename string, conf *Config) error {
 	if err != nil {
 		msg := fmt.Sprintf("json unmarshal config failed %s\r\n", err)
 		fmt.Println(msg)
-		//fxossUtils.ErrorPrintln(msg, false)
 		log.Printf("json unmarshal config failed %s\r\n", err)
 		return err
 	}
@@ -112,10 +111,11 @@ func (conf *Config) IsValid(host string, nowTime time.Time) bool {
 
 // checkTimeValid  convert timeStr to time.Time then checks the time whether after the now
 func checkTimeValid(timeStr string, now time.Time) (bool, error) {
-	timeStamp, err := time.Parse(timeLayout, timeStr)
+	loc, _ := time.LoadLocation("Local")
+	t, err := time.ParseInLocation(timeLayout, timeStr, loc)
 	if err != nil {
 		fmt.Errorf("parse time %s failed: %v", timeStr, err)
 		return false, err
 	}
-	return timeStamp.After(now), nil
+	return t.After(now), nil
 }

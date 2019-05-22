@@ -10,41 +10,45 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+type color int
+
 const (
-	Blue   = "blue"
-	Green  = "green"
-	Yellow = "yellow"
-	Red    = "red"
-	Title  = "title"
-	Info   = "Info"
+	Blue    = color(iota)
+	Green
+	Yellow
+	Red
+	Title
+	Info
+	DEFAULT
 )
 
 var out io.Writer = os.Stdout // modified during testing
 
-var Formats = map[string]string{
-	Blue:      "\033[1;36m%s\r\n\033[0m]\r\n",
-	Green:     "\033[1;32m%s\r\n\033[0m\r\n",
-	Yellow:    "\033[1;33m%s\r\n\033[0m\r\n",
-	Red:       "\033[1;31m%s\r\n\033[0m\r\n",
-	Title:     "\033[30;42m%s\r\n\033[0m\r\n",
-	Info:      "\033[32m%s\r\n\033[0m\r\n",
-	"default": "\033[32m%s\r\n\033[0m\r\n",
+var formats = map[color]string{
+	Blue:    "\033[1;36m%s\r\n\033[0m]\r\n",
+	Green:   "\033[1;32m%s\r\n\033[0m\r\n",
+	Yellow:  "\033[1;33m%s\r\n\033[0m\r\n",
+	Red:     "\033[1;31m%s\r\n\033[0m\r\n",
+	Title:   "\033[30;42m%s\r\n\033[0m\r\n",
+	Info:    "\033[32m%s\r\n\033[0m\r\n",
+	DEFAULT: "\033[32m%s\r\n\033[0m\r\n",
 }
 
-// println in different color
-func ColorPrintln(msg, colorInfo string) {
+// ColorPrintln println message in different color
+func ColorPrintln(msg string, c color) {
 
 	var format string
 
-	if val, ok := Formats[colorInfo]; ok {
+	if val, ok := formats[c]; ok {
 		format = val
 	} else {
-		format = Formats["default"]
+		format = formats[c]
 	}
 
 	fmt.Fprintf(out, format, msg)
 }
 
+// ErrorPrintln print message in color read
 func ErrorPrintln(msg string, exit bool) {
 	ColorPrintln(msg, Red)
 	if exit {
@@ -53,10 +57,12 @@ func ErrorPrintln(msg string, exit bool) {
 
 }
 
+// SuccessPrintln print message in color green
 func SuccessPrintln(msg string) {
 	ColorPrintln(msg, Green)
 }
 
+// FormatItem format value max to string likes value(max)
 func FormatItem(value, maxValue int64) string {
 	var valueStr string
 	var maxStr string
@@ -76,7 +82,7 @@ func FormatItem(value, maxValue int64) string {
 	return fmt.Sprintf("%v(%v)", valueStr, maxStr)
 }
 
-// create folder by give name if the given folder is not exites
+// CreateFolder create folder by give name if the given folder is not exites
 func CreateFolder(folder string) error {
 	_, err := os.Stat(folder)
 	if os.IsNotExist(err) {
@@ -89,7 +95,7 @@ func CreateFolder(folder string) error {
 	return nil
 }
 
-// print ascii table
+// PrintTable print ascii table
 func PrintTable(headers []string, content [][]string) {
 	table := tablewriter.NewWriter(out)
 	table.SetHeader(headers)
@@ -97,7 +103,7 @@ func PrintTable(headers []string, content [][]string) {
 	table.Render()
 }
 
-// converts sn 2 frpc port
+// SN2Port converts sn 2 frpc port
 func SN2Port(sn string) (port string, err error) {
 	if strings.HasPrefix(strings.ToUpper(sn), "CAS053") {
 		port = "40" + sn[len(sn)-3:]

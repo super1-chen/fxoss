@@ -18,96 +18,107 @@ import (
 
 	"github.com/super1-chen/fxoss/conf"
 	"github.com/super1-chen/fxoss/utils"
+	"github.com/super1-chen/fxoss/logger"
+	"strings"
 )
 
-type oss struct {
-	User, Password, Host, SshUser, SshPassword string
+// OSS server struct
+type OSS struct {
+	User, Password, Host, SSHUser, SSHPassword string
 	Conf                                       *conf.Config
-	HttpClient                                 *http.Client
+	HTTPClient                                 *http.Client
+	logger                                     *log.Logger
 }
 
 var (
-	UserKey    = "FXOSS_USER"
-	HostKey    = "FXOSS_HOST"
-	PWDKey     = "FXOSS_PWD"
-	SSHUserKey = "FXOSS_SSH_USER"
-	SSHPWDKey  = "FXOSS_SSH_PWD"
-	ConfDirKey = "FXOSS_DIR"
-	Retry      = 3
+	userKey      = "FXOSS_USER"
+	hostKey      = "FXOSS_HOST"
+	pwdKey       = "FXOSS_PWD"
+	sshUserKey   = "FXOSS_SSH_USER"
+	sshPwdKey    = "FXOSS_SSH_PWD"
+	confDirKey   = "FXOSS_DIR"
+	defaultRetry = 3
 )
 
-func New(now time.Time) (oss *oss, err error) {
-
-	user, err := envLookUp(UserKey)
+// NewOssServer create a new oss server for command line tools
+func NewOssServer(now time.Time, verbose bool) (*OSS, error) {
+	o := new(OSS)
+	user, err := envLookUp(userKey)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	host, err := envLookUp(HostKey)
+	host, err := envLookUp(hostKey)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	pwd, err := envLookUp(PWDKey)
+	pwd, err := envLookUp(pwdKey)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	sshUser, err := envLookUp(SSHUserKey)
+	sshUser, err := envLookUp(sshUserKey)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	sshPwd, err := envLookUp(SSHPWDKey)
+	sshPwd, err := envLookUp(sshPwdKey)
 	if err != nil {
-		return
+		return nil, err
 	}
-	confDir := os.Getenv(ConfDirKey)
+	confDir := os.Getenv(confDirKey)
 
 	if confDir == "" {
 		confDir = "/tmp"
 	}
+	tokenPath := path.Join(confDir, conf.TokenJSON)
+	o.User = user
+	o.Host = host
+	o.Password = pwd
+	o.SSHUser = sshUser
+	o.SSHPassword = sshPwd
+	o.logger = logger.Mylogger(verbose)
+	o.HTTPClient = &http.Client{Timeout: time.Minute} // set default client timeout 60s
 
-	tokenPath := path.Join(confDir, conf.TokenJson)
-
-	oss.User = user
-	oss.Host = host
-	oss.Password = pwd
-	oss.SshUser = sshUser
-	oss.SshPassword = sshPwd
-	oss.HttpClient = &http.Client{Timeout: time.Minute} // set default client timeout 60s
-
-	if _, err := os.Stat(tokenPath); os.IsNotExist(err) {
-		if err = oss.UpdateToken(tokenPath); err != nil {
+	if _, err = os.Stat(tokenPath); os.IsNotExist(err) {
+		o.logger.Printf("update token")
+		if err = o.updateToken(confDir); err != nil {
 			return nil, err
 		}
 	}
 
 	conf, err := conf.NewConfig(tokenPath)
 
+	o.logger.Printf("config %+v", conf)
 	if err != nil {
+		fmt.Printf("%v", err)
 		return nil, err
 	}
+	o.logger.Printf("%s", now)
 
-	if !conf.IsValid(oss.Host, now) {
-		oss.UpdateToken(tokenPath)
+	if !conf.IsValid(o.Host, now) {
+		o.logger.Printf("config is invalid update...")
+		o.updateToken(confDir)
 
 	} else {
-		oss.Conf = conf
+		o.logger.Printf("config is valid skip update...")
+		o.Conf = conf
 	}
 
-	return
+	return o, nil
 
 }
 
 // ShowCDSList shows all cds list info
-func (oss *oss) ShowCDSList(option string, long bool) error {
+func (oss *OSS) ShowCDSList(option string, long bool) error {
 	// api doc: https://doc.fxdata.cn/jenkins/cloud/doc-api/build/#list-cds75
 
 	api := "/v1/cds"
 	errorMsg := "get cds list from api failed"
 	successMsg := "get cds list from api successfully"
-	data := new(CDSList)
+	data := new(cdsList)
+	var cdsList []*cdsInfo
 
 	var headers []string
 	var content [][]string
@@ -120,12 +131,28 @@ func (oss *oss) ShowCDSList(option string, long bool) error {
 	}
 
 	if err = json.Unmarshal(b, &data); err != nil {
+		oss.logger.Printf("decode list failed %v", err)
 		utils.ErrorPrintln("decode cds list failed", false)
 		return fmt.Errorf("decode cds list failed, %v", err)
 	}
 
 	utils.SuccessPrintln(successMsg)
 	if len(data.CDS) == 0 {
+		oss.logger.Printf("decode list failed %v", err)
+		utils.ColorPrintln("CDS list is empty", utils.Yellow)
+		return nil
+	}
+
+	if option == "" {
+		cdsList = data.CDS
+	} else {
+		for _, cds := range data.CDS {
+			if strings.Contains(cds.SN, option) || strings.Contains(cds.Company, option) {
+				cdsList = append(cdsList, cds)
+			}
+		}
+	}
+	if len(cdsList) == 0 {
 		utils.ColorPrintln("CDS list is empty", utils.Yellow)
 		return nil
 	}
@@ -146,8 +173,8 @@ func (oss *oss) ShowCDSList(option string, long bool) error {
 			"updated_at",
 		}
 
-		for index, cds := range data.CDS {
-			index += 1
+		for index, cds := range cdsList {
+			index ++
 			cds.OnlineUserStr = utils.FormatItem(cds.OnlineUser, cds.OnlineUserMax)
 			cds.HitUserStr = utils.FormatItem(cds.HitUser, cds.HitUserMax)
 			cds.ServiceStr = utils.FormatItem(cds.ServiceKbps, cds.ServiceKbpsMax)
@@ -174,8 +201,8 @@ func (oss *oss) ShowCDSList(option string, long bool) error {
 	} else {
 		headers = []string{"#", "company", "sn", "status", "version", "update_at"}
 
-		for index, cds := range data.CDS {
-			index += 1
+		for index, cds := range cdsList {
+			index ++
 			content = append(content, []string{
 				strconv.Itoa(index),
 				cds.Company,
@@ -191,8 +218,8 @@ func (oss *oss) ShowCDSList(option string, long bool) error {
 	return nil
 }
 
-// ShowCDSDetail show all
-func (oss *oss) ShowCDSDetail(sn string) error {
+// ShowCDSDetail show all cds detail information
+func (oss *OSS) ShowCDSDetail(sn string) error {
 
 	var cdsContent [][]string
 	var nodeContent [][]string
@@ -238,11 +265,16 @@ func (oss *oss) ShowCDSDetail(sn string) error {
 	utils.PrintTable(cdsHeaders, cdsContent)
 
 	if len(cds.Nodes) == 0 {
+		oss.logger.Printf("cds nodes is empty return.")
+		utils.ColorPrintln(fmt.Sprintf("Nodes list of CDS %q is empty", sn), utils.Yellow)
 		return nil
 	}
+
+	utils.SuccessPrintln(fmt.Sprintf("CDS %q Nodes list", sn))
+
 	nodeHeaders := []string{"#", "sn", "type", "status", "hit_user(max)", "cache_kbps(max)", "service_kbps(max)"}
 	for index, node := range cds.Nodes {
-		index += 1
+		index ++
 		nodeContent = append(nodeContent, []string{
 			strconv.Itoa(index),
 			node.SN,
@@ -260,25 +292,25 @@ func (oss *oss) ShowCDSDetail(sn string) error {
 }
 
 // LoginCDS uses ssh to login CDS server via ssh-tunnel or frpc-tunnel
-func (oss *oss) LoginCDS(sn string, retry int, f bool) error {
+func (oss *OSS) LoginCDS(sn string, retry int, f bool) error {
 	// here use white-box test method.
 	if retry == 0 {
-		retry = Retry
+		retry = defaultRetry
 	}
 	company, host, port, err := oss.getSSHInfo(sn, f)
-
+	oss.logger.Printf("%s %s:%d", company, host, port)
 	if err != nil {
 		return fmt.Errorf("get ssh host port info failed: %v", err)
 	}
 
-	c, err := oss.sshClient(host, port, Retry)
+	c, err := oss.sshClient(host, port, retry)
 	if err != nil {
 		return err
 	}
 
 	defer c.Close()
 
-	err = utils.RunTerminal(c)
+	err = utils.RunTerminal(company, c)
 	if err != nil {
 		return err
 	}
@@ -288,16 +320,17 @@ func (oss *oss) LoginCDS(sn string, retry int, f bool) error {
 }
 
 // ShowCDSPort shows cds port information by specified sn
-func (oss *oss) ShowCDSPort(sn string) error {
+func (oss *OSS) ShowCDSPort(sn string) error {
 
 	var company, sshHost, sshPort string
 	port, err := oss.getCDSPort(sn)
+
 
 	if err != nil {
 		return err
 	}
 
-	sshHost = port.SshHost
+	sshHost = port.SSHHost
 	sshPort = strconv.Itoa(int(port.SshPort))
 
 	detail, err := oss.getCDSDetail(sn)
@@ -305,26 +338,18 @@ func (oss *oss) ShowCDSPort(sn string) error {
 		company = detail.CDS.Company
 	}
 
-	headers := []string{"company", "ssh_host", "ssh_token"}
+	headers := []string{"company", "ssh_host", "ssh_port"}
 	content := [][]string{{company, sshHost, sshPort}}
 	utils.PrintTable(headers, content)
 
 	return nil
 }
 
-// gets cds port info
-//
-//{
-//"http_port": 57045,
-//"http_url": "http://rhelp.fxdata.cn:57045",\n
-//"https_port": 34755,\n
-//"https_url": "https://rhelp.fxdata.cn:34755",\n
-//"ssh_host": "rhelp.fxdata.cn",\n
-//"ssh_port": 36079\n
-//}
-func (oss *oss) getCDSPort(sn string) (*PortInfo, error) {
-	api := fmt.Sprintf("/v1/cds/%s", sn)
-	port := new(PortInfo)
+// getCDSPort gets cds port info
+func (oss *OSS) getCDSPort(sn string) (*portInfo, error) {
+
+	api := fmt.Sprintf("/v1/icaches/%s/ports", sn)
+	port := new(portInfo)
 
 	b, err := oss.get(api)
 	if err != nil {
@@ -337,12 +362,12 @@ func (oss *oss) getCDSPort(sn string) (*PortInfo, error) {
 	return port, nil
 }
 
-//gets CDS detail infomation
-func (oss *oss) getCDSDetail(sn string) (detail *CdsDetail, err error) {
+// getCDSDetail gets CDS detail infomation
+func (oss *OSS) getCDSDetail(sn string) (detail *cdsDetail, err error) {
 
 	api := fmt.Sprintf("/v1/cds/%s", sn)
-	errorMsg := fmt.Sprintf("GET cds detail information with %s failed", sn)
-	successMsg := fmt.Sprintf("GET cds detail information with %s success", sn)
+	errorMsg := fmt.Sprintf("GET cds detail information with %q failed", sn)
+	successMsg := fmt.Sprintf("GET cds detail information with %q success", sn)
 
 	b, err := oss.get(api)
 
@@ -360,38 +385,38 @@ func (oss *oss) getCDSDetail(sn string) (detail *CdsDetail, err error) {
 	return
 }
 
-func (oss *oss) getSSHInfo(sn string, f bool) (company, sshHost string, sshPort int, err error) {
+func (oss *OSS) getSSHInfo(sn string, f bool) (company, sshHost string, sshPort int, err error) {
 	detail, err := oss.getCDSDetail(sn)
 	if err == nil {
 		company = detail.CDS.Company
 	}
 	if f {
-		sshHost = "oss.fxdata.cn"
+		sshHost = "OSS.fxdata.cn"
 		port, err := utils.SN2Port(sn)
 		if err != nil {
-			return
+			return "", "", 0, err
 		}
 		p, err := strconv.Atoi(port)
 
 		if err != nil {
-			return
+			return "", "", 0, err
 		}
 		sshPort = p
 
 	} else {
 		port, err := oss.getCDSPort(sn)
 		if err != nil {
-			return
+			return "", "", 0, err
 		}
-		sshHost = port.SshHost
+		sshHost = port.SSHHost
 		sshPort = int(port.SshPort)
-		return
 	}
-	return
+
+	return company, sshHost, sshPort, nil
 }
 
 // gets information by the given api
-func (oss *oss) get(api string) ([]byte, error) {
+func (oss *OSS) get(api string) ([]byte, error) {
 
 	url := fmt.Sprintf("%s%s", oss.Host, api)
 	req, err := http.NewRequest("GET", url, nil)
@@ -400,10 +425,10 @@ func (oss *oss) get(api string) ([]byte, error) {
 		return nil, fmt.Errorf("create new get request %s failed %v", api, err)
 	}
 
-	req.Header.Set("Content-Type", oss.Conf.Token)
+	req.Header.Set("X-auth-token", oss.Conf.Token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := oss.HttpClient.Do(req)
+	resp, err := oss.HTTPClient.Do(req)
 
 	if err != nil {
 		return nil, fmt.Errorf("reqest get %s failed %v", api, err)
@@ -417,8 +442,9 @@ func (oss *oss) get(api string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (oss *oss) post(api string, body io.Reader, needToken bool) ([]byte, error) {
+func (oss *OSS) post(api string, body io.Reader, needToken bool) ([]byte, error) {
 	url := fmt.Sprintf("%s%s", oss.Host, api)
+	fmt.Println(url)
 	req, err := http.NewRequest("POST", url, body)
 
 	if err != nil {
@@ -426,15 +452,15 @@ func (oss *oss) post(api string, body io.Reader, needToken bool) ([]byte, error)
 	}
 
 	if needToken && oss.Conf != nil {
-		req.Header.Set("Content-Type", oss.Conf.Token)
+		req.Header.Set("X-auth-token", oss.Conf.Token)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := oss.HttpClient.Do(req)
+	resp, err := oss.HTTPClient.Do(req)
 
 	if err != nil {
-		return nil, fmt.Errorf("reqest post %s failed %v", api, err)
+		return nil, fmt.Errorf("request post %s failed %v", api, err)
 	}
 
 	defer resp.Body.Close()
@@ -446,24 +472,24 @@ func (oss *oss) post(api string, body io.Reader, needToken bool) ([]byte, error)
 
 }
 
-// UpdateToken will download a new token from oss and make a new config of itself
-func (oss *oss) UpdateToken(folderName string) error {
+// updateToken will download a new token from OSS and make a new config of itself
+func (oss *OSS) updateToken(folderName string) error {
 	c := new(conf.Config)
-	b, err := oss.GetNewToken()
+	b, err := oss.getNewToken()
 	if err != nil {
 		return fmt.Errorf("get new token failed %s", err)
 	}
 	r := bytes.NewReader(b)
 	c.Update(r)
 	c.Host = oss.Host
-	if err := c.Save(folderName, conf.TokenJson); err != nil {
-		log.Printf("save token failed %s ", path.Join(folderName, conf.TokenJson))
+	if err := c.Save(folderName, conf.TokenJSON); err != nil {
+		log.Printf("save token failed %s ", path.Join(folderName, conf.TokenJSON))
 	}
 	oss.Conf = c
 	return nil
 }
 
-func (oss *oss) GetNewToken() ([]byte, error) {
+func (oss *OSS) getNewToken() ([]byte, error) {
 	api := "/v1/auth/tokens"
 
 	data := map[string]string{"username": oss.User, "password": oss.Password}
@@ -478,7 +504,7 @@ func (oss *oss) GetNewToken() ([]byte, error) {
 	return oss.post(api, body, false)
 }
 
-func (oss *oss) sshClient(host string, port, retry int) (*ssh.Client, error) {
+func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
 
 	Cb := func(user, instruction string, questions []string, echos []bool) (answers []string, err error) {
 		answers = make([]string, len(questions))
@@ -494,9 +520,9 @@ func (oss *oss) sshClient(host string, port, retry int) (*ssh.Client, error) {
 		return answers, nil
 	}
 	sshConfig := &ssh.ClientConfig{
-		User: oss.SshUser,
+		User: oss.SSHUser,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(oss.SshPassword),
+			ssh.Password(oss.SSHPassword),
 			ssh.RetryableAuthMethod(ssh.KeyboardInteractive(Cb), retry),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -515,7 +541,8 @@ func (oss *oss) sshClient(host string, port, retry int) (*ssh.Client, error) {
 
 func envLookUp(key string) (value string, err error) {
 	errPrefix := "missing env: %s"
-	if value, ok := os.LookupEnv(key); !ok {
+	value, ok := os.LookupEnv(key);
+	if !ok {
 		// todo add logger in here
 		return value, fmt.Errorf(errPrefix, key)
 	}
