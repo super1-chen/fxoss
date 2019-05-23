@@ -44,7 +44,7 @@ var versionCmd = &cobra.Command{
 // Execute run the command tool
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
 }

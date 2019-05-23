@@ -1,17 +1,5 @@
 package fxoss
 
-import (
-	"time"
-	"io"
-)
-
-type config interface {
-	Update(io.Reader) error
-	SetHost(string) error
-	IsValid(string, time.Time) bool
-	GetToken() string
-	Save(string, string) error
-}
 
 type cdsInfo struct {
 	SN             string  `json:"sn"`
@@ -61,7 +49,7 @@ type cdsDetail struct {
 
 type portInfo struct {
 	SSHHost   string `json:"ssh_host"`
-	SshPort   int64  `json:"ssh_port"`
+	SSHPort   int64  `json:"ssh_port"`
 	HttpUrl   string `json:"http_url"`
 	HttpPort  int64  `json:"http_port"`
 	HttpsUrl  string `json:"https_url"`

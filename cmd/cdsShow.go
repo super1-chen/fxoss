@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/super1-chen/fxoss/fxoss"
 	"github.com/super1-chen/fxoss/utils"
+	"github.com/super1-chen/fxoss/conf"
 )
 
 // cdsShowCmd represents the cdsShow command
@@ -27,6 +28,7 @@ var cdsShowDetail = &cobra.Command{
 	Use:   "cds-show",
 	Short: "Show cds detail info",
 	Long: `fxoss cds-show sn`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {return  fxoss.CheckEnvironment()},
 	Run: runShowDetail,
 	Args: requiredSN,
 }
@@ -37,7 +39,9 @@ func init() {
 
 func runShowDetail(cmd *cobra.Command, args []string){
 	now := time.Now().UTC()
-	app, err := fxoss.NewOssServer(now, Debug)
+	config := conf.NewConfig()
+
+	app, err := fxoss.NewOssServer(now, config, Debug)
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 		return

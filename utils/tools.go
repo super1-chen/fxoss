@@ -22,17 +22,18 @@ const (
 	DEFAULT
 )
 
-var out io.Writer = os.Stdout // modified during testing
-
-var formats = map[color]string{
-	Blue:    "\033[1;36m%s\r\n\033[0m]\r\n",
-	Green:   "\033[1;32m%s\r\n\033[0m\r\n",
-	Yellow:  "\033[1;33m%s\r\n\033[0m\r\n",
-	Red:     "\033[1;31m%s\r\n\033[0m\r\n",
-	Title:   "\033[30;42m%s\r\n\033[0m\r\n",
-	Info:    "\033[32m%s\r\n\033[0m\r\n",
-	DEFAULT: "\033[32m%s\r\n\033[0m\r\n",
-}
+var (
+	out     io.Writer = os.Stdout // modified during testing
+	formats           = map[color]string{
+		Blue:    "\033[1;36m%s\r\n\033[0m]\r\n",
+		Green:   "\033[1;32m%s\r\n\033[0m\r\n",
+		Yellow:  "\033[1;33m%s\r\n\033[0m\r\n",
+		Red:     "\033[1;31m%s\r\n\033[0m\r\n",
+		Title:   "\033[30;42m%s\r\n\033[0m\r\n",
+		Info:    "\033[32m%s\r\n\033[0m\r\n",
+		DEFAULT: "\033[32m%s\r\n\033[0m\r\n",
+	}
+)
 
 // ColorPrintln println message in different color
 func ColorPrintln(msg string, c color) {
