@@ -21,6 +21,15 @@ import (
 	"github.com/super1-chen/fxoss/logger"
 )
 
+// OSS server struct
+
+type OSS struct {
+	User, Password, Host, SSHUser, SSHPassword string
+	HTTPClient                                 *http.Client
+	logger                                     *log.Logger
+	config                                     config
+}
+
 var (
 	userKey      = "FXOSS_USER"
 	hostKey      = "FXOSS_HOST"
@@ -29,83 +38,76 @@ var (
 	sshPwdKey    = "FXOSS_SSH_PWD"
 	confDirKey   = "FXOSS_DIR"
 	defaultRetry = 3
-	tokenJSON    = "token.json"
-	envList      = [...]string{userKey, hostKey, pwdKey, sshUserKey, sshPwdKey}
+	tokenJson    = "token.json"
 )
 
-// config interface
-type config interface {
-	Update([]byte) error
-	SetHost(string) error
-	IsValid(string, time.Time) bool
-	GetToken() string
-	Save(string) error
-}
-
-// OSS server struct
-type OSS struct {
-	User, Password, Host, SSHUser, SSHPassword string
-	HTTPClient                                 *http.Client
-	logger                                     *log.Logger
-	config
-}
-
 // NewOssServer create a new oss server for command line tools
-func NewOssServer(now time.Time, config config, verbose bool) (*OSS, error) {
+func NewOssServer(now time.Time, verbose bool, config config) (*OSS, error) {
 
+	user, err := envLookUp(userKey)
+	if err != nil {
+		return nil, err
+	}
+
+	host, err := envLookUp(hostKey)
+	if err != nil {
+		return nil, err
+	}
+
+	pwd, err := envLookUp(pwdKey)
+	if err != nil {
+		return nil, err
+	}
+
+	sshUser, err := envLookUp(sshUserKey)
+	if err != nil {
+		return nil, err
+	}
+
+	sshPwd, err := envLookUp(sshPwdKey)
+	if err != nil {
+		return nil, err
+	}
 	confDir := os.Getenv(confDirKey)
 
 	if confDir == "" {
 		confDir = "/tmp"
 	}
-
-	tokenPath := path.Join(confDir, tokenJSON)
-
-
-	oss := &OSS{
-		User:        os.Getenv(userKey),
-		Host:        os.Getenv(hostKey),
-		Password:    os.Getenv(pwdKey),
-		SSHUser:     os.Getenv(sshUserKey),
-		SSHPassword: os.Getenv(sshPwdKey),
+	tokenPath := path.Join(confDir, tokenJson)
+	o := &OSS{
+		User:        user,
+		Host:        host,
+		Password:    pwd,
+		SSHUser:     sshUser,
+		SSHPassword: sshPwd,
 		HTTPClient:  &http.Client{Timeout: time.Minute},
 		logger:      logger.Mylogger(verbose),
 		config:      config,
 	}
 
-	if _, err := os.Stat(tokenPath); os.IsNotExist(err) {
-		oss.logger.Printf("update now token from api")
-		if err = oss.updateToken(tokenPath); err != nil {
+	if _, err = os.Stat(tokenPath); os.IsNotExist(err) {
+		o.logger.Printf("update token")
+		if err = o.updateToken(confDir); err != nil {
 			return nil, err
 		}
 	}
 
-	oss.logger.Printf("read config from path %s", tokenPath)
-	b, err := ioutil.ReadFile(tokenPath)
-
-	if err != nil {
-		oss.logger.Printf("read conf from path %s: %v", tokenPath, err)
-
-	} else {
-		oss.Update(b)
-	}
-
-	oss.logger.Printf("config %+v", config)
-
+	o.logger.Printf("config %+v", config)
 	if err != nil {
 		fmt.Printf("%v", err)
 		return nil, err
 	}
+	o.logger.Printf("%s", now)
 
-	if !oss.IsValid(oss.Host, now) {
-		oss.logger.Printf("config is invalid update...")
-		oss.updateToken(confDir)
+	if !o.config.IsValid(o.Host, now) {
+		o.logger.Printf("config is invalid update...")
+		o.updateToken(confDir)
 
 	} else {
-		oss.logger.Printf("config is valid skip update...")
+		o.logger.Printf("config is valid skip update...")
 	}
 
-	return oss, nil
+	return o, nil
 
 }
 
@@ -329,7 +331,7 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 	}
 
 	sshHost = port.SSHHost
-	sshPort = strconv.Itoa(int(port.SSHPort))
+	sshPort = strconv.Itoa(int(port.SshPort))
 
 	detail, err := oss.getCDSDetail(sn)
 	if err == nil {
@@ -407,7 +409,7 @@ func (oss *OSS) getSSHInfo(sn string, f bool) (company, sshHost string, sshPort 
 			return "", "", 0, err
 		}
 		sshHost = port.SSHHost
-		sshPort = int(port.SSHPort)
+		sshPort = int(port.SshPort)
 	}
 
 	return company, sshHost, sshPort, nil
@@ -423,7 +425,7 @@ func (oss *OSS) get(api string) ([]byte, error) {
 		return nil, fmt.Errorf("create new get request %s failed %v", api, err)
 	}
 
-	req.Header.Set("X-auth-token", oss.GetToken())
+	req.Header.Set("X-auth-token", oss.config.GetToken())
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := oss.HTTPClient.Do(req)
@@ -450,7 +452,7 @@ func (oss *OSS) post(api string, body io.Reader, needToken bool) ([]byte, error)
 	}
 
 	if needToken && oss.config != nil {
-		req.Header.Set("X-auth-token", oss.GetToken())
+		req.Header.Set("X-auth-token", oss.config.GetToken())
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -471,24 +473,27 @@ func (oss *OSS) post(api string, body io.Reader, needToken bool) ([]byte, error)
 }
 
 // updateToken will download a new token from OSS and make a new config of itself
-func (oss *OSS) updateToken(fileName string) error {
+func (oss *OSS) updateToken(folderName string) error {
 
 	b, err := oss.getNewToken()
 	if err != nil {
 		return fmt.Errorf("get new token failed %s", err)
 	}
 
-	if err = oss.Update(b); err != nil {
-		oss.logger.Printf("update config failed %v", err)
+	r := bytes.NewReader(b)
+
+	if err = oss.config.Update(r); err != nil {
+		log.Printf("update config failed %v", err)
 		return err
 	}
 
-	if err = oss.SetHost(oss.Host); err != nil {
-		oss.logger.Printf("set host failed %v", err)
+	if err = oss.config.SetHost(oss.Host); err != nil {
+		log.Printf("set host failed %v", err)
 	}
 
-	if err = oss.Save(fileName); err != nil {
-		oss.logger.Printf("save token failed %s ", fileName)
+
+	if err = oss.config.Save(folderName, tokenJson); err != nil {
+		log.Printf("save token failed %s ", path.Join(folderName, tokenJson))
 	}
 
 	return nil
@@ -503,7 +508,9 @@ func (oss *OSS) getNewToken() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	body := bytes.NewReader(b)
+
 	return oss.post(api, body, false)
 }
 
@@ -542,20 +549,11 @@ func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
 
 }
 
-// CheckEnvironment checks required environment is existed
-func CheckEnvironment() error {
-	for _, env := range envList {
-		if _, ok := os.LookupEnv(env); !ok {
-			return fmt.Errorf("missing environment %s", env)
-		}
-	}
-	return nil
-}
-
 func envLookUp(key string) (value string, err error) {
 	errPrefix := "missing env: %s"
-	value, ok := os.LookupEnv(key)
+	value, ok := os.LookupEnv(key);
 	if !ok {
+		// todo add logger in here
 		return value, fmt.Errorf(errPrefix, key)
 	}
 	return value, nil
