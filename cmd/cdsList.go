@@ -15,38 +15,36 @@
 package cmd
 
 import (
-
 	"time"
-	"fmt"
+
 	"github.com/spf13/cobra"
 
+	"github.com/super1-chen/fxoss/conf"
 	"github.com/super1-chen/fxoss/fxoss"
 	"github.com/super1-chen/fxoss/utils"
-	"github.com/super1-chen/fxoss/conf"
 )
 
 var (
 	long *bool
-
 )
 
 // cdsListCmd represents the cdsList command
 var cdsListCmd = &cobra.Command{
-	Use:   "cds-list",
-	Short: "get cds list",
-	Long: `fxoss cds-list show all cds information`,
-	PreRunE: func(cmd *cobra.Command, args []string) error {return  fxoss.CheckEnvironment()},
-	Run: runCDSList,
-	Args: cobra.MaximumNArgs(1),
+	Use:     "cds-list",
+	Short:   "get cds list",
+	Long:    `fxoss cds-list show all cds information`,
+	PreRunE: func(cmd *cobra.Command, args []string) error { return fxoss.CheckEnvironment() },
+	Run:     runCDSList,
+	Args:    cobra.MaximumNArgs(1),
 	Example: "fxoss cds-list -l",
 }
 
 func init() {
 	rootCmd.AddCommand(cdsListCmd)
-    long = cdsListCmd.Flags().BoolP("long", "l", false, "show list information as  format")
+	long = cdsListCmd.Flags().BoolP("long", "l", false, "show list information as  format")
 }
 
-func runCDSList(cmd *cobra.Command, args []string){
+func runCDSList(cmd *cobra.Command, args []string) {
 	var option string
 	now := time.Now().UTC()
 	config := conf.NewConfig()

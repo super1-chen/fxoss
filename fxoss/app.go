@@ -3,7 +3,6 @@ package fxoss
 import (
 	"bytes"
 	"encoding/json"
-	"strings"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,13 +11,14 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/super1-chen/fxoss/utils"
 	"github.com/super1-chen/fxoss/logger"
+	"github.com/super1-chen/fxoss/utils"
 )
 
 var (
@@ -60,7 +60,6 @@ func NewOssServer(now time.Time, config config, verbose bool) (*OSS, error) {
 	}
 
 	tokenPath := path.Join(confDir, tokenJSON)
-
 
 	oss := &OSS{
 		User:        os.Getenv(userKey),
@@ -173,7 +172,7 @@ func (oss *OSS) ShowCDSList(option string, long bool) error {
 		}
 
 		for index, cds := range cdsList {
-			index ++
+			index++
 			cds.OnlineUserStr = utils.FormatItem(cds.OnlineUser, cds.OnlineUserMax)
 			cds.HitUserStr = utils.FormatItem(cds.HitUser, cds.HitUserMax)
 			cds.ServiceStr = utils.FormatItem(cds.ServiceKbps, cds.ServiceKbpsMax)
@@ -201,7 +200,7 @@ func (oss *OSS) ShowCDSList(option string, long bool) error {
 		headers = []string{"#", "company", "sn", "status", "version", "update_at"}
 
 		for index, cds := range cdsList {
-			index ++
+			index++
 			content = append(content, []string{
 				strconv.Itoa(index),
 				cds.Company,
@@ -273,7 +272,7 @@ func (oss *OSS) ShowCDSDetail(sn string) error {
 
 	nodeHeaders := []string{"#", "sn", "type", "status", "hit_user(max)", "cache_kbps(max)", "service_kbps(max)"}
 	for index, node := range cds.Nodes {
-		index ++
+		index++
 		nodeContent = append(nodeContent, []string{
 			strconv.Itoa(index),
 			node.SN,
@@ -556,7 +555,7 @@ func envLookUp(key string) (value string, err error) {
 	errPrefix := "missing env: %s"
 	value, ok := os.LookupEnv(key)
 	if !ok {
-		return value, fmt.Errorf(errPrefix, key)
+		return "", fmt.Errorf(errPrefix, key)
 	}
 	return value, nil
 }
