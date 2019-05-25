@@ -343,23 +343,19 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 	return nil
 }
 
-// ReportCDS genereate a cds status xls report and sends the xls to gived to list
+// ReportCDS generate a cds status xls report and sends the xls to gived to list
 func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
-	reportDict := make(map[string]interface{})
+	return nil
 
 }
 
-func (oss *OSS) sendEmail(now time.Time, msg string, retry int, toList ...string) error {
+func (oss *OSS) sendEmail(now time.Time, msg string, toList ...string) error {
 	dirname := confDir()
 	filename := utils.GenerateExcelName(now)
 
 	conf, err := oss.loadEmailConfig()
 	if err != nil {
 		return err
-	}
-
-	if retry == 0 {
-		retry = defaultRetry
 	}
 
 	attachFilePath := path.Join(dirname, excelFileName)
@@ -374,7 +370,7 @@ func (oss *OSS) sendEmail(now time.Time, msg string, retry int, toList ...string
 
 	auth := smtp.PlainAuth("", conf.Address, conf.Password, conf.SMTPServer)
 
-	if err := email.Send(conf.SMTPServer, auth, m); err != nil {
+	if err = email.Send(conf.SMTPServer, auth, m); err != nil {
 		oss.logger.Printf("send mail failed: %v", err)
 		utils.ErrorPrintln("发送邮件失败", false)
 		return fmt.Errorf("send mail failed %v", err)
@@ -582,7 +578,7 @@ func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
 		answers := make([]string, len(questions))
 		for i, question := range questions {
 			fmt.Fprintf(os.Stdout, "%s\r\n", question)
-			bytePassword, err := gopass.GetPasswd()
+			bytePassword, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {
 				return nil, err
 			}
