@@ -578,15 +578,16 @@ func (oss *OSS) getNewToken() ([]byte, error) {
 
 func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
 
-	Cb := func(user, instruction string, questions []string, echos []bool) (answers []string, err error) {
-		answers = make([]string, len(questions))
+	Cb := func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		answers := make([]string, len(questions))
 		for i, question := range questions {
 			fmt.Fprintf(os.Stdout, "%s\r\n", question)
-			bytePassword, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+			bytePassword, err := gopass.GetPasswd()
 			if err != nil {
 				return nil, err
 			}
 			password := string(bytePassword)
+			oss.logger.Printf("passowrd %v", password)
 			answers[i] = password
 		}
 		return answers, nil
