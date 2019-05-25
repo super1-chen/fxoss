@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -13,7 +14,7 @@ import (
 type color int
 
 const (
-	Blue    = color(iota)
+	Blue color = iota
 	Green
 	Yellow
 	Red
@@ -114,4 +115,11 @@ func SN2Port(sn string) (port string, err error) {
 		return port, fmt.Errorf("illegal cds sn %s", sn)
 	}
 	return
+}
+
+// GenerateExcelName generates excel filename depeding on date
+func GenerateExcelName(now time.Time) string {
+	layout := "2006-01-02"
+	nowStr := now.Format(layout)
+	return "cds_message-" + nowStr + ".xls"
 }

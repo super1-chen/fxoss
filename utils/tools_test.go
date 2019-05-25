@@ -3,11 +3,12 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"testing"
-	"os/exec"
-	"os"
+	"time"
 )
 
 func TestFormatItem(t *testing.T) {
@@ -80,8 +81,6 @@ func TestErrorPrintlnExit(t *testing.T) {
 	t.Fatalf("process TestErrorPrintlnExit with err %v, want exit status 1", err)
 }
 
-
-
 func TestSuccessPrintln(t *testing.T) {
 
 	want := "\033[1;32mhello\r\n\033[0m\r\n"
@@ -98,8 +97,8 @@ func TestSuccessPrintln(t *testing.T) {
 
 }
 
-func TestCreateFolder(t *testing.T){
-	defer func(){
+func TestCreateFolder(t *testing.T) {
+	defer func() {
 		os.RemoveAll("test")
 	}()
 	err := os.MkdirAll(path.Join("test", "test1"), os.ModePerm)
@@ -107,8 +106,8 @@ func TestCreateFolder(t *testing.T){
 		t.Errorf("create test1 folder at setup failed %v", err)
 		return
 	}
-	tests := []string{path.Join("test", "test1"), path.Join("test", "test2"), path.Join("test","test3")}
-	for _, test := range tests{
+	tests := []string{path.Join("test", "test1"), path.Join("test", "test2"), path.Join("test", "test3")}
+	for _, test := range tests {
 		err := CreateFolder(test)
 		if err != nil {
 			t.Errorf("create folder %q failed: %v", test, err)
@@ -116,7 +115,7 @@ func TestCreateFolder(t *testing.T){
 	}
 }
 
-func TestPrintTable(t *testing.T){
+func TestPrintTable(t *testing.T) {
 	out = new(bytes.Buffer) // captured output
 	headers := []string{"A", "B", "C"}
 	content := [][]string{{"a1", "b1", "c1"}, {"a2", "b2", "c2"}}
@@ -128,11 +127,10 @@ func TestPrintTable(t *testing.T){
 	}
 }
 
-
 func TestSN2PortSuccess(t *testing.T) {
-	tests := []struct{sn, port string}{
+	tests := []struct{ sn, port string }{
 		{"cas0530001", "40001"},
-		{"cas0510002",  "20002"},
+		{"cas0510002", "20002"},
 		{"cas0510302", "20302"},
 	}
 	for _, test := range tests {
@@ -154,7 +152,16 @@ func TestSN2PortError(t *testing.T) {
 		t.Errorf("want err but err == nil")
 		return
 	}
-	if ! strings.Contains(err.Error(), "illegal cds sn") {
+	if !strings.Contains(err.Error(), "illegal cds sn") {
 		t.Errorf("get err %v", err)
+	}
+}
+
+func TestGenerateExcelName(t *testing.T) {
+	want := "cds_message-2018-01-01.xls"
+	now := time.Date(2018, 1, 1, 0, 55, 55, 0, time.UTC)
+	got := generateExcelName(now)
+	if got != want {
+		t.Errorf("want %s got %s want != got", want, got)
 	}
 }
