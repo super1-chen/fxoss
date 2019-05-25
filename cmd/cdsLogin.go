@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/super1-chen/fxoss/fxoss"
+	"github.com/super1-chen/fxoss/app"
 	"github.com/super1-chen/fxoss/utils"
 	"github.com/super1-chen/fxoss/conf"
 )
@@ -34,7 +34,7 @@ var cdsLoginCmd = &cobra.Command{
 	Short: "ssh login remote server",
 	Long: `fxoss cds-login sn`,
 	Args: requiredSN,
-	PreRunE: func(cmd *cobra.Command, args []string) error {return  fxoss.CheckEnvironment()},
+	PreRunE: func(cmd *cobra.Command, args []string) error {return  app.CheckEnvironment()},
 	Run: runLoginCDS,
 }
 
@@ -49,7 +49,7 @@ func runLoginCDS(cmd *cobra.Command, args []string){
 	now := time.Now().UTC()
 	config := conf.NewConfig()
 
-	app, err := fxoss.NewOssServer(now, config, Debug)
+	app, err := app.NewOssServer(now, config, Debug)
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 		return

@@ -1,4 +1,4 @@
-package fxoss
+package app
 
 import (
 	"bytes"
@@ -345,7 +345,30 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 
 // ReportCDS generate a cds status xls report and sends the xls to gived to list
 func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
-	return nil
+
+	apiLables := "/v1/cds-labels"
+	apiCDS := "/v1/cds"
+	ch1 := make(chan int, 20)
+	ch2 := make(chan cdsInfo, 20)
+
+	l := new(labels)
+	b, err := oss.get(apiLables)
+	if err != nil {
+		oss.logger.Printf("%v", err)
+		utils.ErrorPrintln("获取cds-lables信息失败", false)
+		return err
+	}
+	if err = json.Unmarshal(b, l); err != nil {
+		oss.logger.Printf("json.Unmarshal cds labels failed %v", err)
+		utils.ErrorPrintln("解析cds labels信息失败", false)
+		return fmt.Errorf("json.Ummarshal cds-labels failed %v", err)
+	}
+
+	go func(){}
+
+}
+
+func (oss *OSS) makeReport(){
 
 }
 
@@ -494,12 +517,14 @@ func (oss *OSS) get(api string) ([]byte, error) {
 	resp, err := oss.HTTPClient.Do(req)
 
 	if err != nil {
+		oss.logger.Printf("request get %s failed %v", api, err)
 		return nil, fmt.Errorf("reqest get %s failed %v", api, err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		oss.logger.Printf("request get %s status %s", api, resp.Status)
 		return nil, fmt.Errorf("request get %s status %s", api, resp.Status)
 	}
 	return ioutil.ReadAll(resp.Body)

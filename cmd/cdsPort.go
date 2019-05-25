@@ -19,9 +19,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/super1-chen/fxoss/fxoss"
 	"github.com/super1-chen/fxoss/utils"
 	"github.com/super1-chen/fxoss/conf"
+	"github.com/super1-chen/fxoss/app"
 )
 
 // cdsPortCmd represents the cdsPort command
@@ -30,7 +30,7 @@ var cdsPortCmd = &cobra.Command{
 	Short: "show cds port information",
 	Long: `fxoss cds-port sn`,
 	Args: requiredSN,
-	PreRunE: func(cmd *cobra.Command, args []string) error {return  fxoss.CheckEnvironment()},
+	PreRunE: func(cmd *cobra.Command, args []string) error {return  app.CheckEnvironment()},
 	Run: runShowPort,
 }
 
@@ -43,7 +43,7 @@ func runShowPort(cmd *cobra.Command, args []string){
 	now := time.Now().UTC()
 	config := conf.NewConfig()
 
-	app, err := fxoss.NewOssServer(now, config, Debug)
+	app, err := app.NewOssServer(now, config, Debug)
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 		return

@@ -1,4 +1,4 @@
-package fxoss
+package app
 
 type cdsInfo struct {
 	SN             string `json:"sn"`
@@ -26,6 +26,11 @@ type cdsInfo struct {
 	Nodes          []*node `json:"nodes"`
 }
 
+type labelCdsInfo struct {
+	label
+	cdsList []*cdsInfo
+}
+
 type node struct {
 	SN             string `json:"sn"`
 	Type           string `json:"type"`
@@ -44,6 +49,16 @@ type cdsList struct {
 
 type cdsDetail struct {
 	CDS *cdsInfo `json:"cds"`
+}
+
+type label struct {
+	ID int64 `json:"id"`
+	Name string `json:"name"`
+	Count int64 `json:"count"`
+}
+
+type labels struct {
+	Labels []*label `json:"labels"`
 }
 
 type portInfo struct {

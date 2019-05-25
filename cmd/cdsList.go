@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/super1-chen/fxoss/conf"
-	"github.com/super1-chen/fxoss/fxoss"
+	"github.com/super1-chen/fxoss/app"
 	"github.com/super1-chen/fxoss/utils"
 )
 
@@ -33,7 +33,7 @@ var cdsListCmd = &cobra.Command{
 	Use:     "cds-list",
 	Short:   "get cds list",
 	Long:    `fxoss cds-list show all cds information`,
-	PreRunE: func(cmd *cobra.Command, args []string) error { return fxoss.CheckEnvironment() },
+	PreRunE: func(cmd *cobra.Command, args []string) error { return app.CheckEnvironment() },
 	Run:     runCDSList,
 	Args:    cobra.MaximumNArgs(1),
 	Example: "fxoss cds-list -l",
@@ -48,7 +48,7 @@ func runCDSList(cmd *cobra.Command, args []string) {
 	var option string
 	now := time.Now().UTC()
 	config := conf.NewConfig()
-	app, err := fxoss.NewOssServer(now, config, Debug)
+	app, err := app.NewOssServer(now, config, Debug)
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 		return
