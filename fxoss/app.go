@@ -8,12 +8,15 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/mail"
+	"net/smtp"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/scorredoira/email"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -22,15 +25,16 @@ import (
 )
 
 var (
-	userKey      = "FXOSS_USER"
-	hostKey      = "FXOSS_HOST"
-	pwdKey       = "FXOSS_PWD"
-	sshUserKey   = "FXOSS_SSH_USER"
-	sshPwdKey    = "FXOSS_SSH_PWD"
-	confDirKey   = "FXOSS_DIR"
-	defaultRetry = 3
-	tokenJSON    = "token.json"
-	envList      = [...]string{userKey, hostKey, pwdKey, sshUserKey, sshPwdKey}
+	userKey       = "FXOSS_USER"
+	hostKey       = "FXOSS_HOST"
+	pwdKey        = "FXOSS_PWD"
+	sshUserKey    = "FXOSS_SSH_USER"
+	sshPwdKey     = "FXOSS_SSH_PWD"
+	confDirKey    = "FXOSS_DIR"
+	defaultRetry  = 3
+	tokenJSON     = "token.json"
+	excelFileName = "cds_message.xls"
+	envList       = [...]string{userKey, hostKey, pwdKey, sshUserKey, sshPwdKey}
 )
 
 // config interface
@@ -53,13 +57,9 @@ type OSS struct {
 // NewOssServer create a new oss server for command line tools
 func NewOssServer(now time.Time, config config, verbose bool) (*OSS, error) {
 
-	confDir := os.Getenv(confDirKey)
+	confPath := confDir()
 
-	if confDir == "" {
-		confDir = "/tmp"
-	}
-
-	tokenPath := path.Join(confDir, tokenJSON)
+	tokenPath := path.Join(confPath, tokenJSON)
 
 	oss := &OSS{
 		User:        os.Getenv(userKey),
@@ -98,7 +98,7 @@ func NewOssServer(now time.Time, config config, verbose bool) (*OSS, error) {
 
 	if !oss.IsValid(oss.Host, now) {
 		oss.logger.Printf("config is invalid update...")
-		oss.updateToken(confDir)
+		oss.updateToken(tokenPath)
 
 	} else {
 		oss.logger.Printf("config is valid skip update...")
@@ -228,6 +228,7 @@ func (oss *OSS) ShowCDSDetail(sn string) error {
 		"monitor_kbps(max)", "version", "updated_at"}
 
 	data, err := oss.getCDSDetail(sn)
+
 	if err != nil {
 		return err
 	}
@@ -342,6 +343,74 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 	return nil
 }
 
+// ReportCDS genereate a cds status xls report and sends the xls to gived to list
+func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
+	reportDict := make(map[string]interface{})
+
+}
+
+func (oss *OSS) sendEmail(now time.Time, msg string, retry int, toList ...string) error {
+	dirname := confDir()
+	filename := utils.GenerateExcelName(now)
+
+	conf, err := oss.loadEmailConfig()
+	if err != nil {
+		return err
+	}
+
+	if retry == 0 {
+		retry = defaultRetry
+	}
+
+	attachFilePath := path.Join(dirname, excelFileName)
+	data, err := ioutil.ReadFile(attachFilePath)
+	if err != nil {
+		return fmt.Errorf("read xls: %s failed %v", excelFileName, err)
+	}
+	m := email.NewMessage("FxData CDS message", msg)
+	m.From = mail.Address{Name: fmt.Sprintf("Operation Robot <%s>", conf.Address), Address: "from@example.com"}
+	m.To = toList
+	m.AttachBuffer(filename, data, false)
+
+	auth := smtp.PlainAuth("", conf.Address, conf.Password, conf.SMTPServer)
+
+	if err := email.Send(conf.SMTPServer, auth, m); err != nil {
+		oss.logger.Printf("send mail failed: %v", err)
+		utils.ErrorPrintln("发送邮件失败", false)
+		return fmt.Errorf("send mail failed %v", err)
+	}
+	return nil
+}
+
+// loadEmailConfig load email config from config
+func (oss *OSS) loadEmailConfig() (*emailConf, error) {
+
+	name := "fx_email.json"
+	dir := confDir()
+	filename := path.Join(dir, name)
+
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		oss.logger.Printf("file %s doesn't exists", filename)
+		utils.ErrorPrintln(fmt.Sprintf("未找到邮件相关的配置文件，在%s", filename), false)
+		return nil, fmt.Errorf("no found email config %s", filename)
+	}
+
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		oss.logger.Printf("read email config failed %v", err)
+		utils.ErrorPrintln(fmt.Sprintf("读取%s失败", filename), false)
+		return nil, fmt.Errorf("read email config failed: %v", err)
+	}
+
+	conf := new(emailConf)
+	err = json.Unmarshal(b, conf)
+	if err != nil {
+		oss.logger.Printf("json unmarshal email failed %v", err)
+		return nil, fmt.Errorf("json unmarshal failed %v", err)
+	}
+	return conf, nil
+}
+
 // getCDSPort gets cds port info
 func (oss *OSS) getCDSPort(sn string) (*portInfo, error) {
 
@@ -382,6 +451,7 @@ func (oss *OSS) getCDSDetail(sn string) (detail *cdsDetail, err error) {
 	return
 }
 
+// getSSHInfo get SSH connection information from api
 func (oss *OSS) getSSHInfo(sn string, f bool) (company, sshHost string, sshPort int, err error) {
 	detail, err := oss.getCDSDetail(sn)
 	if err == nil {
@@ -524,7 +594,7 @@ func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
 	sshConfig := &ssh.ClientConfig{
 		User: oss.SSHUser,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(oss.SSHPassword),
+			// ssh.Password(oss.SSHPassword),
 			ssh.RetryableAuthMethod(ssh.KeyboardInteractive(Cb), retry),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -551,11 +621,11 @@ func CheckEnvironment() error {
 	return nil
 }
 
-func envLookUp(key string) (value string, err error) {
-	errPrefix := "missing env: %s"
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		return "", fmt.Errorf(errPrefix, key)
+func confDir() string {
+	dirname := os.Getenv(confDirKey)
+
+	if dirname == "" {
+		dirname = "/tmp"
 	}
-	return value, nil
+	return dirname
 }
