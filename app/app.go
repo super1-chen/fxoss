@@ -14,6 +14,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/scorredoira/email"
@@ -346,30 +347,46 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 // ReportCDS generate a cds status xls report and sends the xls to gived to list
 func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
 
-	apiLables := "/v1/cds-labels"
-	apiCDS := "/v1/cds"
-	ch1 := make(chan int, 20)
-	ch2 := make(chan cdsInfo, 20)
+	api := "/v1/cds-labels"
 
-	l := new(labels)
-	b, err := oss.get(apiLables)
+	lableModule := new(labels)
+	data, err := oss.get(api)
 	if err != nil {
 		oss.logger.Printf("%v", err)
 		utils.ErrorPrintln("获取cds-lables信息失败", false)
 		return err
 	}
-	if err = json.Unmarshal(b, l); err != nil {
+
+	if err = json.Unmarshal(data, lableModule); err != nil {
 		oss.logger.Printf("json.Unmarshal cds labels failed %v", err)
 		utils.ErrorPrintln("解析cds labels信息失败", false)
 		return fmt.Errorf("json.Ummarshal cds-labels failed %v", err)
 	}
-
-	go func(){}
-
+	return nil
 }
 
-func (oss *OSS) makeReport(){
-
+func (oss *OSS) fetchCdsCurrent(in <-chan *label, out chan<- *cdsDetail, currency int, wg *sync.WaitGroup) {
+	apiBase := "/v1/cds?lables=%s"
+	for i := 0; i < currency; i++ {
+		wg.Add(1)
+		for l := range in {
+			api := fmt.Sprintf(apiBase, l.ID)
+			go func(api string) {
+				cds := new(cdsDetail)
+				b, err := oss.get(api)
+				if err != nil {
+					oss.logger.Printf("fetch cds defailt %s failed: %v", api, err)
+					return
+				}
+				if err = json.Unmarshal(b, cds); err != nil {
+					oss.logger.Printf("unmarshal cds api api failed %v", err)
+					return
+				}
+				out <- cds
+			}(api)
+		}
+		wg.Done()
+	}
 }
 
 func (oss *OSS) sendEmail(now time.Time, msg string, toList ...string) error {
