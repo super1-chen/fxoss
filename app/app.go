@@ -365,9 +365,10 @@ func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
 	return nil
 }
 
-func (oss *OSS) fetchCdsCurrent(in <-chan *label, out chan<- *cdsDetail, currency int, wg *sync.WaitGroup) {
+// fetchCdsConcurrent concurrent fetch cds info by labels
+func (oss *OSS) fetchCdsConcurrent(in <-chan *label, out chan<- *cdsInfo, con int, wg *sync.WaitGroup) {
 	apiBase := "/v1/cds?lables=%s"
-	for i := 0; i < currency; i++ {
+	for i := 0; i < con; i++ {
 		wg.Add(1)
 		for l := range in {
 			api := fmt.Sprintf(apiBase, l.ID)
@@ -382,8 +383,24 @@ func (oss *OSS) fetchCdsCurrent(in <-chan *label, out chan<- *cdsDetail, currenc
 					oss.logger.Printf("unmarshal cds api api failed %v", err)
 					return
 				}
-				out <- cds
+				out <- cds.CDS
 			}(api)
+		}
+		wg.Done()
+	}
+}
+
+// getCDSDiskInfoCurrent concurrently fetch cds disk info from api
+func (oss *OSS) getCDSDiskInfoCurrent(in <-chan *cdsInfo, out chan<- *cdsDiskInfo, con int, wg *sync.WaitGroup) {
+	apiBase := "/v1/icache/%s/disks"
+	for i := 0; i < con; i++ {
+		wg.Add(1)
+		for cds := range in {
+			go func(api string) {
+				d := new(disks)
+
+			}(cds)
+
 		}
 		wg.Done()
 	}

@@ -52,9 +52,9 @@ type cdsDetail struct {
 }
 
 type label struct {
-	ID int64 `json:"id"`
-	Name string `json:"name"`
-	Count int64 `json:"count"`
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
 }
 
 type labels struct {
@@ -71,7 +71,27 @@ type portInfo struct {
 }
 
 type emailConf struct {
-	Address string `json:"address"`
-	Password    string `json:"password"`
-	SMTPServer  string `json:"smtp_server"`
+	Address    string `json:"address"`
+	Password   string `json:"password"`
+	SMTPServer string `json:"smtp_server"`
+}
+
+type disk struct {
+	Await  string `json:"await"`
+	Name   string `json:"name"`
+	RS     string `json:"rs"`
+	Size   string `json:"size"`
+	Status int64  `json:"status"`
+	Used   string `json:"usesd"`
+	Util   string `json:"util"`
+	WS     string `json:"ws"`
+}
+
+type disks struct {
+	Disk []*disk `json:"disks"`
+}
+
+type cdsDiskInfo struct {
+	cdsInfo
+	disks []*disk
 }
