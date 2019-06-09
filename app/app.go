@@ -38,6 +38,12 @@ var (
 	envList       = [...]string{userKey, hostKey, pwdKey, sshUserKey, sshPwdKey}
 )
 
+type cdsResult struct {
+	label   *label
+	cdsList *cdsList
+	err     error
+}
+
 // config interface
 type config interface {
 	Update([]byte) error
@@ -346,63 +352,104 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 
 // ReportCDS generate a cds status xls report and sends the xls to gived to list
 func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
+	return nil
+}
+
+func (oss *OSS) fetchCdsLabels(out chan<- *label) error {
+	defer close(out)
 
 	api := "/v1/cds-labels"
-
-	lableModule := new(labels)
+	labelList := new(labels)
 	data, err := oss.get(api)
 	if err != nil {
 		oss.logger.Printf("%v", err)
 		utils.ErrorPrintln("获取cds-lables信息失败", false)
 		return err
 	}
-
-	if err = json.Unmarshal(data, lableModule); err != nil {
+	if err = json.Unmarshal(data, labelList); err != nil {
 		oss.logger.Printf("json.Unmarshal cds labels failed %v", err)
 		utils.ErrorPrintln("解析cds labels信息失败", false)
 		return fmt.Errorf("json.Ummarshal cds-labels failed %v", err)
 	}
+	if len(labelList.Labels) == 0 {
+		oss.logger.Println("cds labels is empty, pass")
+		return nil
+	}
+	for _, label := range labelList.Labels {
+		out <- label
+	}
 	return nil
 }
 
-// fetchCdsConcurrent concurrent fetch cds info by labels
-func (oss *OSS) fetchCdsConcurrent(in <-chan *label, out chan<- *cdsInfo, con int, wg *sync.WaitGroup) {
+func (oss *OSS) fetchCdsByLabel(in <-chan *label, out chan<- *cdsList) {
+	wg := &sync.WaitGroup{}
 	apiBase := "/v1/cds?lables=%s"
-	for i := 0; i < con; i++ {
+	for i := 0; i < 3; i++ {
 		wg.Add(1)
-		for l := range in {
-			api := fmt.Sprintf(apiBase, l.ID)
-			go func(api string) {
-				cds := new(cdsDetail)
+		go func(in <-chan *label) {
+			defer wg.Done()
+			for label := range in {
+				api := fmt.Sprintf(apiBase, label.ID)
+				list := new(cdsList)
 				b, err := oss.get(api)
 				if err != nil {
-					oss.logger.Printf("fetch cds defailt %s failed: %v", api, err)
+					oss.logger.Printf("get cds info from api %s failed %v", api, err)
 					return
 				}
-				if err = json.Unmarshal(b, cds); err != nil {
-					oss.logger.Printf("unmarshal cds api api failed %v", err)
+				if err = json.Unmarshal(b, list); err != nil {
+					oss.logger.Printf("unmarshal cds info failed %v", err)
 					return
 				}
-				out <- cds.CDS
-			}(api)
-		}
-		wg.Done()
+				out <- list
+			}
+		}(in)
 	}
+	wg.Wait()
+	close(out)
+	oss.logger.Printf("oss.fetchCdsByLabel finished jobs")
+	return
 }
 
-// getCDSDiskInfoCurrent concurrently fetch cds disk info from api
-func (oss *OSS) getCDSDiskInfoCurrent(in <-chan *cdsInfo, out chan<- *cdsDiskInfo, con int, wg *sync.WaitGroup) {
-	apiBase := "/v1/icache/%s/disks"
-	for i := 0; i < con; i++ {
+func (oss *OSS) fetchDiskMakeExcel(in <-chan *cdsList) {
+	type diskType struct {
+		deviceType int64
+		*cdsDetail
+	}
+	wg := &sync.WaitGroup{}
+	out := make(chan *diskType, 10)
+	apiBase := "/v1/icaches/%s/disks"
+	out := make(chan diskType, 10)
+	for i := 0; i < 3; i++ {
 		wg.Add(1)
-		for cds := range in {
-			go func(api string) {
-				d := new(disks)
+		go func() {
+			wg.Done()
+			for list := range in {
+				for _, cds := range list.CDS {
 
-			}(cds)
+					api := fmt.Sprintf(apiBase, cds.SN)
+					data, err := oss.get(api)
+					if err != nil {
+						oss.logger.Printf("fetch api %s failed %v", api, err)
+						continue
+					}
+					diskList := new(disks)
+					err = json.Unmarshal(data, &diskList)
+					if err != nil {
+						oss.logger.Printf("unmarshal disks filed %v", err)
+						continue
+					}
+						
+				}
+			}
+		}()
+	}
+	go func(){
+		wg.Wait()
+		close(in)
+	}()
 
-		}
-		wg.Done()
+	for dType := range diskType {
+		
 	}
 }
 
@@ -684,4 +731,11 @@ func confDir() string {
 		dirname = "/tmp"
 	}
 	return dirname
+}
+
+// calcDiskType calculates disk type of cds depending on length of disks
+func calcDiskType(list []*disks) int64 {
+	var diskType int64
+	diskCount := len(list)
+	if diskCount < 
 }

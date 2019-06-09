@@ -77,6 +77,7 @@ type emailConf struct {
 }
 
 type disk struct {
+<<<<<<< HEAD
 	Await  string `json:"await"`
 	Name   string `json:"name"`
 	RS     string `json:"rs"`
@@ -94,4 +95,17 @@ type disks struct {
 type cdsDiskInfo struct {
 	cdsInfo
 	disks []*disk
+=======
+	Await      string `json:"await"`
+	Name       string `json:"name"`
+	ReadSpeed  string `json:"rs"`
+	Size       string `json:"size"`
+	Used       string `json: "used"`
+	Util       string `json:"util"`
+	WriteSpeed string `json: "ws"`
+}
+
+type disks struct {
+	Disks []*disk `json:"disks"`
+>>>>>>> add disk excel report
 }
