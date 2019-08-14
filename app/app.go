@@ -12,12 +12,14 @@ import (
 	"net/smtp"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/scorredoira/email"
+	"github.com/tealeg/xlsx"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -352,15 +354,61 @@ func (oss *OSS) ShowCDSPort(sn string) error {
 
 // ReportCDS generate a cds status xls report and sends the xls to gived to list
 func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
+
+	root := confDir()
+	excelName := utils.GenerateExcelName(now)
+	excelPath := path.Join(root, excelName)
+	toUsers := strings.Join(toList, ",")
+
+	defer func() {
+		fileName := path.Join(root, excelName)
+		err := os.Remove(fileName)
+		if err == nil {
+			oss.logger.Printf("delet file %s success", fileName)
+		}
+	}()
+
+	utils.ColorPrintln("开始提取数据", utils.Yellow)
+
+	in := make(chan *label)      // without cds list information
+	out := make(chan *label, 20) // with cds information
+
+	go oss.fetchCDSByLabel(in, out)
+	go oss.fetchLabels(in)
+	data := oss.fetchDiskTypeResult(out)
+
+	utils.ColorPrintln("开始创建表格: "+excelName, utils.Yellow)
+
+	err := oss.makeCDSExcel(data, excelPath)
+	if err != nil {
+		oss.logger.Println(err)
+		utils.ErrorPrintln(fmt.Sprintf("创建excel%s失败", excelName), false)
+		return nil
+	}
+
+	utils.ColorPrintln("开始发送邮件给: "+toUsers, utils.Yellow)
+
+	err = oss.sendEmail(excelName, "cds 磁盘情况报告", toList...)
+	if err != nil {
+		utils.ErrorPrintln(fmt.Sprintf("发送email%s给%q失败", excelName, toUsers), false)
+		oss.logger.Println(err)
+	}
+
+	utils.SuccessPrintln("发送邮件成至用户:" + toUsers)
+
 	return nil
+
 }
 
-func (oss *OSS) fetchCdsLabels(out chan<- *label) error {
-	defer close(out)
-
+func (oss *OSS) fetchLabels(in chan<- *label) error {
+	defer func() {
+		close(in)
+		oss.logger.Printf("finished job fetchLabels and close chan in")
+	}()
 	api := "/v1/cds-labels"
 	labelList := new(labels)
 	data, err := oss.get(api)
+
 	if err != nil {
 		oss.logger.Printf("%v", err)
 		utils.ErrorPrintln("获取cds-lables信息失败", false)
@@ -376,105 +424,137 @@ func (oss *OSS) fetchCdsLabels(out chan<- *label) error {
 		return nil
 	}
 	for _, label := range labelList.Labels {
-		out <- label
+		in <- label
 	}
 	return nil
 }
 
-func (oss *OSS) fetchCdsByLabel(in <-chan *label, out chan<- *cdsList) {
+func (oss *OSS) fetchCDSByLabel(in <-chan *label, out chan<- *label) {
 	wg := &sync.WaitGroup{}
-	apiBase := "/v1/cds?lables=%s"
-	for i := 0; i < 3; i++ {
+	apiBase := "/v1/cds?label=%d"
+
+	defer func() {
+		oss.logger.Printf("oss.fetchCdsByLabel finished jobs")
+		close(out)
+	}()
+
+	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(in <-chan *label) {
 			defer wg.Done()
 			for label := range in {
 				api := fmt.Sprintf(apiBase, label.ID)
 				list := new(cdsList)
+				oss.logger.Printf("api %s", api)
 				b, err := oss.get(api)
 				if err != nil {
 					oss.logger.Printf("get cds info from api %s failed %v", api, err)
-					return
+					continue
 				}
 				if err = json.Unmarshal(b, list); err != nil {
 					oss.logger.Printf("unmarshal cds info failed %v", err)
-					return
+					continue
 				}
-				out <- list
+				label.CDSList = list.CDS
+				out <- label
 			}
 		}(in)
 	}
 	wg.Wait()
-	close(out)
-	oss.logger.Printf("oss.fetchCdsByLabel finished jobs")
 	return
 }
 
-func (oss *OSS) fetchDiskMakeExcel(in <-chan *cdsList) {
-	type diskType struct {
-		deviceType int64
-		*cdsDetail
-	}
-	wg := &sync.WaitGroup{}
-	out := make(chan *diskType, 10)
-	apiBase := "/v1/icaches/%s/disks"
-	out := make(chan diskType, 10)
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
-			wg.Done()
-			for list := range in {
-				for _, cds := range list.CDS {
+func (oss *OSS) fetchDiskTypeResult(labels <-chan *label) map[string][]*diskTypeResult {
 
-					api := fmt.Sprintf(apiBase, cds.SN)
-					data, err := oss.get(api)
-					if err != nil {
-						oss.logger.Printf("fetch api %s failed %v", api, err)
-						continue
-					}
-					diskList := new(disks)
-					err = json.Unmarshal(data, &diskList)
-					if err != nil {
-						oss.logger.Printf("unmarshal disks filed %v", err)
-						continue
-					}
-						
-				}
-			}
-		}()
-	}
-	go func(){
-		wg.Wait()
-		close(in)
+	wg := &sync.WaitGroup{}
+	mapping := make(map[string][]*diskTypeResult)
+	in := make(chan *diskTypeResult, 10)
+	out := make(chan *diskTypeResult, 10)
+	semaphore := make(chan struct{})
+
+	go func() {
+		for ret := range out {
+			key := ret.domain
+			mapping[key] = append(mapping[key], ret)
+		}
+		oss.logger.Printf("send a semaphore")
+		semaphore <- struct{}{}
 	}()
 
-	for dType := range diskType {
-		
+	// start diskType and UserAndSppeedFormat
+	oss.logger.Printf("fetch disk type result start work")
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ret := range in {
+				ret.diskType = oss.getDiskType(ret.sn)
+				ret.userAndSpeed = utils.FormatUserAndSpeed(ret.user, ret.speed)
+				out <- ret
+			}
+			return
+		}()
 	}
+
+	for l := range labels {
+		oss.logger.Printf("fetchDiskTypeResult get label %v", l.Name)
+
+		for _, c := range l.CDSList {
+			d := diskTypeResult{domain: l.Name, sn: c.SN, company: c.Company, status: c.Status, user: c.OnlineUserMax, speed: c.ServiceKbpsMax}
+			in <- &d
+		}
+	}
+
+	oss.logger.Printf("close in chan in fetchDiskTypeResult")
+	close(in)
+	wg.Wait()
+	oss.logger.Printf("close out chan in fetchDiskTypeResult")
+	close(out)
+
+	<-semaphore // wait until receive the semaphore
+
+	return mapping
 }
 
-func (oss *OSS) sendEmail(now time.Time, msg string, toList ...string) error {
-	dirname := confDir()
-	filename := utils.GenerateExcelName(now)
+func (oss *OSS) getDiskType(sn string) int64 {
+	api := fmt.Sprintf("/v1/icaches/%s/disks", sn)
+	// oss.logger.Printf("fetch disk type by sn %s", sn)
+	data, err := oss.get(api)
+	if err != nil {
+		oss.logger.Printf("fetch api %s failed %v, return 0", api, err)
+		return 0
+	}
+	diskList := new(disks)
+	err = json.Unmarshal(data, &diskList)
+	if err != nil {
+		oss.logger.Printf("parser disk list failed %v, return 0", err)
+		return 0
+	}
 
+	return utils.CalcDiskType(int64(len(diskList.Disk)))
+}
+
+func (oss *OSS) sendEmail(filename, msg string, toList ...string) error {
+
+	dirname := confDir()
 	conf, err := oss.loadEmailConfig()
 	if err != nil {
 		return err
 	}
 
-	attachFilePath := path.Join(dirname, excelFileName)
+	attachFilePath := path.Join(dirname, filename)
 	data, err := ioutil.ReadFile(attachFilePath)
 	if err != nil {
-		return fmt.Errorf("read xls: %s failed %v", excelFileName, err)
+		return fmt.Errorf("read xlsx: %s failed %v", filename, err)
 	}
 	m := email.NewMessage("FxData CDS message", msg)
-	m.From = mail.Address{Name: fmt.Sprintf("Operation Robot <%s>", conf.Address), Address: "from@example.com"}
+	m.From = mail.Address{Name: fmt.Sprintf("Operation Robot <%s>", conf.Address), Address: conf.Address}
 	m.To = toList
 	m.AttachBuffer(filename, data, false)
 
 	auth := smtp.PlainAuth("", conf.Address, conf.Password, conf.SMTPServer)
 
-	if err = email.Send(conf.SMTPServer, auth, m); err != nil {
+	if err = email.Send("smtp.exmail.qq.com:25", auth, m); err != nil {
 		oss.logger.Printf("send mail failed: %v", err)
 		utils.ErrorPrintln("发送邮件失败", false)
 		return fmt.Errorf("send mail failed %v", err)
@@ -587,7 +667,7 @@ func (oss *OSS) get(api string) ([]byte, error) {
 
 	url := fmt.Sprintf("%s%s", oss.Host, api)
 	req, err := http.NewRequest("GET", url, nil)
-
+	oss.logger.Printf("start request api %s", url)
 	if err != nil {
 		return nil, fmt.Errorf("create new get request %s failed %v", api, err)
 	}
@@ -733,9 +813,68 @@ func confDir() string {
 	return dirname
 }
 
-// calcDiskType calculates disk type of cds depending on length of disks
-func calcDiskType(list []*disks) int64 {
-	var diskType int64
-	diskCount := len(list)
-	if diskCount < 
+func (oss *OSS) makeCDSExcel(data map[string][]*diskTypeResult, xlsxPath string) error {
+	headers := []string{"Customer Name", "SN", "Service Max Speed", "Status", "Device Type"}
+
+	var file *xlsx.File
+	var sheet *xlsx.Sheet
+	var row *xlsx.Row
+	var cell *xlsx.Cell
+	var err error
+	var rowData []string
+
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	// Create new excel file
+	file = xlsx.NewFile()
+	hStyle := headerStyle()
+
+	for _, key := range keys {
+		sheet, err = file.AddSheet(key)
+
+		if err != nil {
+			return fmt.Errorf("create new sheet %s %v", key, err)
+		}
+
+		row = sheet.AddRow()
+		for _, item := range headers {
+			cell = row.AddCell()
+			cell.SetStyle(hStyle)
+			cell.Value = item
+		}
+
+		d := data[key]
+
+		sort.Slice(d[:], func(i, j int) bool { return d[i].sn < d[j].sn })
+		for _, item := range d {
+			rowData = []string{item.company, item.sn, item.userAndSpeed, item.status, strconv.Itoa(int(item.diskType))}
+			row = sheet.AddRow()
+			row.WriteSlice(&rowData, 5)
+		}
+	}
+
+	// save
+	err = file.Save(xlsxPath)
+	if err != nil {
+		return fmt.Errorf("save excel file %s %v", xlsxPath, err)
+	}
+	return nil
+}
+
+func headerStyle() *xlsx.Style {
+
+	style := xlsx.NewStyle()
+	font := xlsx.DefaultFont()
+	alignement := xlsx.Alignment{WrapText: true}
+
+	font.Name = "Times New Roman"
+	font.Bold = true
+	font.Size = 14
+	style.Font = *font
+	style.Alignment = alignement
+	return style
 }

@@ -158,10 +158,40 @@ func TestSN2PortError(t *testing.T) {
 }
 
 func TestGenerateExcelName(t *testing.T) {
-	want := "cds_message-2018-01-01.xls"
+	want := "cds_message-2017-12-31.xlsx"
 	now := time.Date(2018, 1, 1, 0, 55, 55, 0, time.UTC)
-	got := generateExcelName(now)
+	got := GenerateExcelName(now)
 	if got != want {
 		t.Errorf("want %s got %s want != got", want, got)
+	}
+}
+
+func TestCalcDiskType(t *testing.T) {
+	var got int64
+	tests := []struct{ length, want int64 }{
+		{4, 500}, {6, 1000}, {12, 2000}, {1555, 3000},
+	}
+
+	for _, test := range tests {
+		got = CalcDiskType(test.length)
+		if got != test.want {
+			t.Errorf("length %d: want %d != got %d", test.length, test.want, got)
+		}
+	}
+}
+
+func TestFoarmatUserAndSpeed(t *testing.T) {
+	var got string
+	tests := []struct {
+		user, speed int64
+		want        string
+	}{
+		{400, 1024, "400/1.0Mbps"}, {200, 2048, "200/2.0Mbps"}, {12, 2000, "12/2.0Mbps"}, {0, 0, "0/0.0Mbps"},
+	}
+	for _, test := range tests {
+		got = FormatUserAndSpeed(test.user, test.speed)
+		if got != test.want {
+			t.Errorf("TestFoarmatUserAndSpeed got: %s != want: %s", got, test.want)
+		}
 	}
 }

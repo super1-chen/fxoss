@@ -52,9 +52,10 @@ type cdsDetail struct {
 }
 
 type label struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Count int64  `json:"count"`
+	ID      int64  `json:"id"`
+	Name    string `json:"name"`
+	Count   int64  `json:"count"`
+	CDSList []*cdsInfo
 }
 
 type labels struct {
@@ -77,7 +78,6 @@ type emailConf struct {
 }
 
 type disk struct {
-<<<<<<< HEAD
 	Await  string `json:"await"`
 	Name   string `json:"name"`
 	RS     string `json:"rs"`
@@ -94,18 +94,17 @@ type disks struct {
 
 type cdsDiskInfo struct {
 	cdsInfo
-	disks []*disk
-=======
+	disks      []*disk
 	Await      string `json:"await"`
 	Name       string `json:"name"`
 	ReadSpeed  string `json:"rs"`
 	Size       string `json:"size"`
-	Used       string `json: "used"`
+	DiskUsed   string `json: "used"`
 	Util       string `json:"util"`
 	WriteSpeed string `json: "ws"`
 }
 
-type disks struct {
-	Disks []*disk `json:"disks"`
->>>>>>> add disk excel report
+type diskTypeResult struct {
+	domain, sn, company, status, userAndSpeed string
+	user, speed, diskType                     int64
 }

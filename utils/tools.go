@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -119,7 +120,32 @@ func SN2Port(sn string) (port string, err error) {
 
 // GenerateExcelName generates excel filename depeding on date
 func GenerateExcelName(now time.Time) string {
+	yesterday := now.AddDate(0, 0, -1)
 	layout := "2006-01-02"
-	nowStr := now.Format(layout)
-	return "cds_message-" + nowStr + ".xls"
+	nowStr := yesterday.Format(layout)
+	return "cds_message-" + nowStr + ".xlsx"
+}
+
+// WriteExcel write excel files to a given excel filename.
+func WriteExcel(excelName string) error {
+	return nil
+}
+
+// CalcDiskType calculates disk type of cds depending on length
+func CalcDiskType(length int64) int64 {
+	if length < 5 {
+		return 500
+	} else if length > 5 && length <= 10 {
+		return 1000
+	} else if length > 10 && length <= 14 {
+		return 2000
+	} else {
+		return 3000
+	}
+}
+
+// FormatUserAndSpeed foramt result as `20/10Mbps`
+func FormatUserAndSpeed(onlineUser, serviceSpeed int64) string {
+	speedStr := math.Round(float64(serviceSpeed) / float64(1024))
+	return fmt.Sprintf("%d/%0.1fMbps", onlineUser, speedStr)
 }

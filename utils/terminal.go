@@ -1,16 +1,21 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
+	"path"
+	"sync"
 	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
+
+var timeout = time.Second * 30
 
 type sshTerminal struct {
 	Session *ssh.Session
@@ -156,4 +161,91 @@ func RunTerminal(company string, c *ssh.Client) error {
 // RunCommands run give command
 func RunCommands(c *ssh.Client, cmd string) error {
 	return nil
+}
+
+//CopyFromFile Copies the contents of an os.File to a remote location, it will get the length of the file by looking it up from the filesystem
+func CopyFromFile(c *ssh.Client, file os.File, remotePath string, permissions string) error {
+	stat, _ := file.Stat()
+	return Copy(c, &file, remotePath, permissions, stat.Size(), timeout)
+}
+
+// Copy Copies the contents of an io.Reader to a remote location
+func Copy(c *ssh.Client, r io.Reader, remotePath string, permissions string, size int64, timeout time.Duration) error {
+	filename := path.Base(remotePath)
+	directory := path.Dir(remotePath)
+	session, err := c.NewSession()
+
+	if err != nil {
+		return err
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	errCh := make(chan error, 2)
+
+	go func() {
+		defer wg.Done()
+		w, err := session.StdinPipe()
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer w.Close()
+
+		_, err = fmt.Fprintln(w, "C"+permissions, size, filename)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		_, err = io.Copy(w, r)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		_, err = fmt.Fprint(w, "\x00")
+		if err != nil {
+			errCh <- err
+			return
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		err := session.Run(fmt.Sprintf("%s -qt %s", "scp", directory))
+		if err != nil {
+			errCh <- err
+			return
+		}
+	}()
+
+	if waitTimeout(&wg, timeout) {
+		return errors.New("timeout when upload files")
+	}
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// waitTimeout waits for the waitgroup for the specified max timeout.
+// Returns true if waiting timed out.
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return false // completed normally
+	case <-time.After(timeout):
+		return true // timed out
+	}
 }
