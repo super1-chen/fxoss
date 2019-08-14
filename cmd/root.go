@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	// show version
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.PersistentFlags().BoolVarP(debug, "verbose", "v", false, "run fxoss in verbose mode")
+	debug = rootCmd.PersistentFlags().BoolP("verbose", "v", false, "run fxoss in verbose mode")
 	//
 	rootCmd.AddCommand(cdsListCmd)
 	long = cdsListCmd.Flags().BoolP("long", "l", false, "show list information as  format")
@@ -42,7 +42,7 @@ func init() {
 	frpc = cdsLoginCmd.Flags().BoolP("frpc", "F", false, "login cds in frpc mode")
 	r = cdsLoginCmd.Flags().IntP("retry", "r", 3, "retry times of SSH login")
 	// cds port partion
-	rootCmd.AddCommand(cdsShowDetail)
+	rootCmd.AddCommand(cdsPortCmd)
 	// show csd detail partion
 	rootCmd.AddCommand(cdsShowDetail)
 	// make cds report partion
@@ -88,7 +88,7 @@ func Execute() {
 // cds list partion
 var cdsListCmd = &cobra.Command{
 	Use:     "cds-list",
-	Short:   "get cds list",
+	Short:   "Show cds list",
 	Long:    `fxoss cds-list show all cds information`,
 	PreRunE: func(cmd *cobra.Command, args []string) error { return app.CheckEnvironment() },
 	Run:     runCDSList,
@@ -119,7 +119,7 @@ func runCDSList(cmd *cobra.Command, args []string) {
 // cds login partion
 var cdsLoginCmd = &cobra.Command{
 	Use:     "cds-login",
-	Short:   "ssh login remote server",
+	Short:   "SSH login remote server",
 	Long:    `fxoss cds-login sn`,
 	Args:    requiredSN,
 	PreRunE: func(cmd *cobra.Command, args []string) error { return app.CheckEnvironment() },
@@ -145,7 +145,7 @@ func runLoginCDS(cmd *cobra.Command, args []string) {
 // cds port partion
 var cdsPortCmd = &cobra.Command{
 	Use:     "cds-port",
-	Short:   "show cds port information",
+	Short:   "Show cds port information",
 	Long:    `fxoss cds-port sn`,
 	Args:    requiredSN,
 	PreRunE: func(cmd *cobra.Command, args []string) error { return app.CheckEnvironment() },
@@ -196,7 +196,7 @@ func runShowDetail(cmd *cobra.Command, args []string) {
 // cdsShowCmd represents the cdsShow command
 var cdsReportShow = &cobra.Command{
 	Use:     "cds-report",
-	Short:   "make cds disk type report and send the report by email",
+	Short:   "Make cds disk type report and send the report by email",
 	Long:    `fxoss cds-report chenc@fxdata.cn chenc@ifeixiang.com`,
 	PreRunE: func(cmd *cobra.Command, args []string) error { return app.CheckEnvironment() },
 	Run:     runReport,
