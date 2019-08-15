@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"time"
 )
@@ -45,7 +44,7 @@ func TestConfig_Save(t *testing.T) {
 	}
 	for _, test := range tests {
 
-		if err := test.conf.Save(folderName, test.fileName); err != nil {
+		if err := test.conf.Save(path.Join(folderName, test.fileName)); err != nil {
 			t.Errorf("conf save meet error %v", err)
 		}
 
@@ -120,7 +119,7 @@ func TestConfig_Update(t *testing.T) {
 	}
 	for _, test := range tests {
 		got := new(config)
-		r := strings.NewReader(test.jsonStr)
+		r := []byte(test.jsonStr)
 		got.Update(r)
 
 		if *got != *test.want {
@@ -130,7 +129,6 @@ func TestConfig_Update(t *testing.T) {
 }
 
 func TestCheckTimeValid(t *testing.T) {
-
 	tests := []struct {
 		timeStr string
 		now     time.Time
@@ -149,7 +147,7 @@ func TestCheckTimeValid(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got, err := checkTimeValid(test.timeStr, test.now);
+		got, err := checkTimeValid(test.timeStr, test.now)
 		if err != nil {
 			t.Errorf("checkTimeValid got %s got error %s", test.timeStr, err)
 			continue
