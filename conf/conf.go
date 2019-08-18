@@ -43,7 +43,6 @@ func (conf *config) GetToken() string {
 }
 
 // IsValid checks config is not expired and contains an expected hostname
-//
 func (conf *config) IsValid(host string, nowUTCTime time.Time) bool {
 
 	if conf.Host != host {
