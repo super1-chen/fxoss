@@ -1,5 +1,3 @@
-# Fxoss 
-
 # FXOSS command-line tool (go version ) [![Build Status](https://travis-ci.org/super1-chen/fxoss.svg?branch=master)](https://travis-ci.org/super1-chen/fxoss)
 
 This tool is used for get CDS asset list (with an option), show
