@@ -43,12 +43,13 @@ func (conf *config) GetToken() string {
 }
 
 // IsValid checks config is not expired and contains an expected hostname
-func (conf *config) IsValid(host string, nowTime time.Time) bool {
+//
+func (conf *config) IsValid(host string, nowUTCTime time.Time) bool {
 
 	if conf.Host != host {
 		return false
 	}
-	if isValid, err := checkTimeValid(conf.ExpiredAt, nowTime); !isValid || err != nil {
+	if isValid, err := checkTimeValid(conf.ExpiredAt, nowUTCTime); !isValid || err != nil {
 		return false
 	}
 	return true
