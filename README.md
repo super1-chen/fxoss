@@ -9,13 +9,13 @@ We assume that your system is Ubuntu 14.04 and
 
 ## Download and Install
 
-goto [https://github.com/super1-chen/fxoss/releases](https://github.com/super1-chen/fxoss/releases) and download least version
+goto [https://github.com/super1-chen/fxoss/releases](https://github.com/super1-chen/fxoss/releases) and download latest version
 
-and move execute files into  `/usr/local/bin`
+and move executable file into  `/usr/local/bin`
 
 ## Setup FXOSS tool configuration
 
-Add them in your environment variables.
+Add below in your environment variables.
 
 ```shell
 export FXOSS_HOST=https://oss.fxdata.cn
@@ -26,25 +26,26 @@ export FXOSS_SSH_PWD='xxxxxx'
 ```
 
 __Notice:__
-1. *_PWD must be included with quotes as 'password'
+1. `FXOSS_SSH_PWD` and `FXOSS_PWD` must be included with quotes looks like 'password'
 
 ## Setup Email Configuration
 
-if you want use `fxoss cds-report` you should setup email configuration first.
+When you want to use the subcomand `fxoss cds-report` you should setup email configuration first.
 
-add json file into `/tmp/fx_email.json`
+Add json file into `/tmp/fx_email.json`
 
 > /tmp/fx_email.json
 
 ```
 {
     "address": "email@fxdata.cn",
-	"password": "email password",
-	"smtp_server": "smtp server"
+    "password": "email password",
+    "smtp_server": "smtp server"
 }
 ```
 
 ## How to use the tool
+
 ### help information
 
 fxoss -h \ --help
