@@ -1,12 +1,26 @@
 language: go
 sudo: false
 
+addons:
+  apt:
+    packages:
+    # needed for the nfpm pipe:
+    - rpm
+
 matrix:
   include:
-    - go: "1.9"
+    # - go: "1.9"
     - go: "1.10"
     - go: "tip"
 
 script:
   - go test -v ./...
   - go test -race ./...
+
+deploy:
+- provider: script
+  skip_cleanup: true
+  script: curl -sL https://git.io/goreleaser | bash
+  on:
+    tags: true
+    condition: $TRAVIS_OS_NAME = linux
