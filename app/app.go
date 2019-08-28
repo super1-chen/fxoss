@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -69,14 +70,17 @@ func NewOssServer(now time.Time, config config, verbose bool) (*OSS, error) {
 	confPath := confDir()
 
 	tokenPath := path.Join(confPath, tokenJSON)
-
+	// skip ssl verification.
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	oss := &OSS{
 		User:        os.Getenv(userKey),
 		Host:        os.Getenv(hostKey),
 		Password:    os.Getenv(pwdKey),
 		SSHUser:     os.Getenv(sshUserKey),
 		SSHPassword: os.Getenv(sshPwdKey),
-		HTTPClient:  &http.Client{Timeout: time.Minute},
+		HTTPClient:  &http.Client{Timeout: time.Minute, Transport: tr},
 		logger:      logger.Mylogger(verbose),
 		config:      config,
 	}
@@ -777,7 +781,7 @@ func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
 	sshConfig := &ssh.ClientConfig{
 		User: oss.SSHUser,
 		Auth: []ssh.AuthMethod{
-			// ssh.Password(oss.SSHPassword),
+			ssh.Password(oss.SSHPassword),
 			ssh.RetryableAuthMethod(ssh.KeyboardInteractive(Cb), retry),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
