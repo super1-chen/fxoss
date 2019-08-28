@@ -195,3 +195,18 @@ func TestFoarmatUserAndSpeed(t *testing.T) {
 		}
 	}
 }
+
+func TestMD5Hash(t *testing.T) {
+	tests := []struct {
+		sn, want string
+	}{
+		{"cds2202003", "99afe6faf4013dceea2eb332483e8503"},
+		{"cds2202001", "08684ee5afc5b2c04a83ac0d2bb600d0"},
+	}
+	for _, test := range tests {
+		got := MD5Hash(test.sn)
+		if got != test.want {
+			t.Errorf("TestMD5Hash(%s) got: %s != want: %s", test.sn, got, test.want)
+		}
+	}
+}

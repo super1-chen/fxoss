@@ -47,6 +47,8 @@ func init() {
 	rootCmd.AddCommand(cdsShowDetail)
 	// make cds report partion
 	rootCmd.AddCommand(cdsReportShow)
+	// make web root partion
+	rootCmd.AddCommand(cdsWebRoot)
 }
 
 func requiredSN(cmd *cobra.Command, args []string) error {
@@ -216,4 +218,30 @@ func runReport(cmd *cobra.Command, args []string) {
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 	}
+}
+
+// cdsShowCmd represents the cdsShow command
+var cdsWebRoot = &cobra.Command{
+	Use:     "web-root",
+	Short:   "Get cds web root password",
+	Long:    `fxoss web-root sn`,
+	PreRunE: func(cmd *cobra.Command, args []string) error { return app.CheckEnvironment() },
+	Run:     runWebRoot,
+	Args:    requiredSN,
+}
+
+func runWebRoot(cmd *cobra.Command, args []string) {
+	now := time.Now().UTC()
+	config := conf.NewConfig()
+
+	app, err := app.NewOssServer(now, config, *debug)
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+		return
+	}
+	err = app.WebRoot(args[0])
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+	}
+
 }

@@ -404,6 +404,12 @@ func (oss *OSS) ReportCDS(now time.Time, toList ...string) error {
 
 }
 
+// WebRoot show cds web root token
+func (oss *OSS) WebRoot(sn string) error {
+	fmt.Println(utils.MD5Hash(sn))
+	return nil
+}
+
 func (oss *OSS) fetchLabels(in chan<- *label) error {
 	defer func() {
 		close(in)

@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
@@ -116,6 +118,14 @@ func SN2Port(sn string) (port string, err error) {
 		return port, fmt.Errorf("illegal cds sn %s", sn)
 	}
 	return
+}
+
+// MD5Hash get MD5 hashed string
+func MD5Hash(sn string) string {
+	hasher := md5.New()
+	slat := "b15a8dad4b53dd14842f1892db1a9848"
+	io.WriteString(hasher, slat+sn)
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 // GenerateExcelName generates excel filename depeding on date
