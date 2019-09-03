@@ -67,7 +67,7 @@ func TestConfig_IsValid(t *testing.T) {
 			config{
 				"www.youku.com",
 				"1234512345",
-				"2018-01-01 01:00:00",
+				"2018-01-01 09:00:00",
 			},
 			"www.youku.com",
 			time.Date(2018, 1, 1, 0, 55, 55, 0, time.UTC),
@@ -77,7 +77,7 @@ func TestConfig_IsValid(t *testing.T) {
 			config{
 				"www.youku1.com",
 				"1234512345",
-				"2018-01-01 01:00:00",
+				"2018-01-01 09:00:00",
 			},
 			"www.youku.com",
 			time.Date(2018, 1, 1, 0, 55, 55, 0, time.UTC),
@@ -87,7 +87,7 @@ func TestConfig_IsValid(t *testing.T) {
 			config{
 				"www.youku.com",
 				"1234512345",
-				"2018-01-01 01:00:00",
+				"2018-01-01 09:00:00",
 			},
 			"www.youku.com",
 			time.Date(2018, 1, 1, 1, 5, 0, 0, time.UTC),
@@ -135,12 +135,12 @@ func TestCheckTimeValid(t *testing.T) {
 		want    bool
 	}{
 		{
-			"2018-01-01 01:00:00",
+			"2018-01-01 09:00:00",
 			time.Date(2018, 1, 1, 0, 55, 55, 0, time.UTC),
 			true,
 		},
 		{
-			"2018-01-01 01:00:00",
+			"2018-01-01 09:00:00",
 			time.Date(2018, 1, 1, 2, 0, 0, 0, time.UTC),
 			false,
 		},

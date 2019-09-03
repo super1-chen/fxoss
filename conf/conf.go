@@ -81,7 +81,12 @@ func (conf *config) Save(fileName string) error {
 
 // checkTimeValid  convert timeStr to time.Time then checks the time whether after the now
 func checkTimeValid(timeStr string, now time.Time) (bool, error) {
-	t, err := time.ParseInLocation(timeLayout, timeStr, time.UTC)
+	l, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		err := fmt.Errorf("location timezone failed %v", err)
+		return false, err
+	}
+	t, err := time.ParseInLocation(timeLayout, timeStr, l)
 	if err != nil {
 		err := fmt.Errorf("parse time %s failed: %v", timeStr, err)
 		return false, err
