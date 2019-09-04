@@ -20,8 +20,10 @@ var (
 	// cds list partion
 	long *bool
 	// cds login partion
-	r    *int
-	frpc *bool
+	r       *int
+	timeout *int
+	frpc    *bool
+	pwd     *string
 )
 
 var rootCmd = &cobra.Command{
@@ -41,6 +43,8 @@ func init() {
 	rootCmd.AddCommand(cdsLoginCmd)
 	frpc = cdsLoginCmd.Flags().BoolP("frpc", "F", false, "login cds in frpc mode")
 	r = cdsLoginCmd.Flags().IntP("retry", "r", 3, "retry times of SSH login")
+	timeout = cdsLoginCmd.Flags().IntP("timeout", "t", 60, "timeout seconds of SSH login")
+	pwd = cdsLoginCmd.Flags().StringP("password", "p", "", "password of SSH login")
 	// cds port partion
 	rootCmd.AddCommand(cdsPortCmd)
 	// show csd detail partion
@@ -138,7 +142,7 @@ func runLoginCDS(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	err = app.LoginCDS(args[0], *r, *frpc)
+	err = app.LoginCDS(args[0], *pwd, *r, *timeout, *frpc)
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 	}
@@ -220,7 +224,7 @@ func runReport(cmd *cobra.Command, args []string) {
 	}
 }
 
-// cdsShowCmd represents the cdsShow command
+// cdsWebRoot return root passowrd of cds
 var cdsWebRoot = &cobra.Command{
 	Use:     "web-root",
 	Short:   "Get cds web root password",

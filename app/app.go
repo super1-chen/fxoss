@@ -304,7 +304,7 @@ func (oss *OSS) ShowCDSDetail(sn string) error {
 }
 
 // LoginCDS uses ssh to login CDS server via ssh-tunnel or frpc-tunnel
-func (oss *OSS) LoginCDS(sn string, retry int, f bool) error {
+func (oss *OSS) LoginCDS(sn, pwd string, retry, timeout int, f bool) error {
 	// here use white-box test method.
 	if retry == 0 {
 		retry = defaultRetry
@@ -315,7 +315,7 @@ func (oss *OSS) LoginCDS(sn string, retry int, f bool) error {
 		return fmt.Errorf("get ssh host port info failed: %v", err)
 	}
 
-	c, err := oss.sshClient(host, port, retry)
+	c, err := oss.sshClient(host, pwd, port, retry, timeout)
 	if err != nil {
 		return err
 	}
@@ -768,8 +768,8 @@ func (oss *OSS) getNewToken() ([]byte, error) {
 	return oss.post(api, body, false)
 }
 
-func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
-
+func (oss *OSS) sshClient(host, pwd string, port, retry, timeout int) (*ssh.Client, error) {
+	tDuration := time.Duration(0)
 	Cb := func(user, instruction string, questions []string, echos []bool) ([]string, error) {
 		answers := make([]string, len(questions))
 		for i, question := range questions {
@@ -784,14 +784,23 @@ func (oss *OSS) sshClient(host string, port, retry int) (*ssh.Client, error) {
 		}
 		return answers, nil
 	}
+	if pwd == "" {
+		pwd = oss.SSHPassword
+	}
+
+	if timeout == 0 {
+		tDuration = time.Minute
+	} else {
+		tDuration = time.Duration(timeout) * time.Second
+	}
 	sshConfig := &ssh.ClientConfig{
 		User: oss.SSHUser,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(oss.SSHPassword),
+			ssh.Password(pwd),
 			ssh.RetryableAuthMethod(ssh.KeyboardInteractive(Cb), retry),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         time.Minute,
+		Timeout:         tDuration,
 	}
 
 	addr := fmt.Sprintf("%s:%d", host, port)
