@@ -152,7 +152,7 @@ func runLoginCDS(cmd *cobra.Command, args []string) {
 			utils.ErrorPrintln(err.Error(), false)
 		}
 		reader := bufio.NewReader(os.Stdin)
-		utils.SuccessPrintln("请输入SN, 并按enter登陆")
+		fmt.Print("请输入SN, 并按enter登陆: ")
 		sn, _ = reader.ReadString('\n')
 		sn = strings.TrimSpace(sn)
 	}
