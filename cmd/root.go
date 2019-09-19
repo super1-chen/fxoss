@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -45,6 +46,7 @@ func init() {
 	r = cdsLoginCmd.Flags().IntP("retry", "r", 3, "retry times of SSH login")
 	timeout = cdsLoginCmd.Flags().IntP("timeout", "t", 60, "timeout seconds of SSH login")
 	pwd = cdsLoginCmd.Flags().StringP("password", "p", "", "password of SSH login")
+	long = cdsLoginCmd.Flags().BoolP("long", "l", false, "show list information as  format")
 	// cds port partion
 	rootCmd.AddCommand(cdsPortCmd)
 	// show csd detail partion
@@ -135,14 +137,27 @@ var cdsLoginCmd = &cobra.Command{
 func runLoginCDS(cmd *cobra.Command, args []string) {
 	now := time.Now().UTC()
 	config := conf.NewConfig()
+	var sn string
 
 	app, err := app.NewOssServer(now, config, *debug)
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 		return
 	}
+	if utils.IsAssertSN(args[0]) {
+		sn = args[0]
+	} else {
+		err = app.ShowCDSList(args[0], *long)
+		if err != nil {
+			utils.ErrorPrintln(err.Error(), false)
+		}
+		reader := bufio.NewReader(os.Stdin)
+		utils.SuccessPrintln("请输入SN, 并按enter登陆")
+		sn, _ = reader.ReadString('\n')
+		sn = strings.TrimSpace(sn)
+	}
 
-	err = app.LoginCDS(args[0], *pwd, *r, *timeout, *frpc)
+	err = app.LoginCDS(sn, *pwd, *r, *timeout, *frpc)
 	if err != nil {
 		utils.ErrorPrintln(err.Error(), false)
 	}

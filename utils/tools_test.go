@@ -210,3 +210,20 @@ func TestMD5Hash(t *testing.T) {
 		}
 	}
 }
+
+func TestIsAssertSN(t *testing.T) {
+	tests := []struct {
+		sn   string
+		want bool
+	}{
+		{"CAS0530000474", true},
+		{"CAS0530000520", true},
+		{"BAS0530000520", false},
+	}
+	for _, test := range tests {
+		got := IsAssertSN(test.sn)
+		if got != test.want {
+			t.Errorf("IsAssertSN(%s) got: %t != want: %t", test.sn, got, test.want)
+		}
+	}
+}

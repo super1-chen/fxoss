@@ -159,3 +159,11 @@ func FormatUserAndSpeed(onlineUser, serviceSpeed int64) string {
 	speedStr := math.Round(float64(serviceSpeed) / float64(1024))
 	return fmt.Sprintf("%d/%0.1fMbps", onlineUser, speedStr)
 }
+
+// IsAssertSN check sn is correct format assert sn
+func IsAssertSN(sn string) bool {
+	if strings.HasPrefix(sn, "CDS") || strings.HasPrefix(sn, "CAS") {
+		return true
+	}
+	return false
+}
