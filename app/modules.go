@@ -108,3 +108,11 @@ type diskTypeResult struct {
 	domain, sn, company, status, userAndSpeed string
 	user, speed, diskType                     int64
 }
+
+type nemNode struct {
+	Name         string `json:"name"`
+	SN           string `json:"sn"`
+	Hid          string `json:"hid"`
+	CdsSN        string `json:"cds_sn"`
+	CustomerName string `json:"customer_name"`
+}

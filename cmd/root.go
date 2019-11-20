@@ -37,7 +37,9 @@ func init() {
 	// show version
 	rootCmd.AddCommand(versionCmd)
 	debug = rootCmd.PersistentFlags().BoolP("verbose", "v", false, "run fxoss in verbose mode")
-	//
+	// nem list partion
+	rootCmd.AddCommand(nemListCmd)
+	// cds list partion
 	rootCmd.AddCommand(cdsListCmd)
 	long = cdsListCmd.Flags().BoolP("long", "l", false, "show list information as  format")
 	// cds login partion
@@ -90,6 +92,31 @@ func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
+	}
+}
+
+// nem list partion
+var nemListCmd = &cobra.Command{
+	Use:     "nem-list",
+	Short:   "Show nem list",
+	Long:    `fxoss nem-list only show nem nodes which binded cds`,
+	PreRunE: func(cmd *cobra.Command, args []string) error { return app.CheckEnvironment() },
+	Run:     runNemList,
+}
+
+func runNemList(cmd *cobra.Command, args []string) {
+	now := time.Now().UTC()
+	config := conf.NewConfig()
+	app, err := app.NewOssServer(now, config, *debug)
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+		return
+	}
+
+	err = app.ShowNemList()
+	if err != nil {
+		utils.ErrorPrintln(err.Error(), false)
+		return
 	}
 }
 

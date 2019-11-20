@@ -229,6 +229,68 @@ func (oss *OSS) ShowCDSList(option string, long bool) error {
 	return nil
 }
 
+// ShowNemList only shows all nem nodes which binded cds
+func (oss *OSS) ShowNemList() error {
+	// api doc http://doc.fxdata.cn/jenkins/cloud/nem-doc/build/#nem-node-list-pc-pc-nem
+	api := "/v1/nem/lite/nem_node/pc"
+	errorMsg := "get nem list from api failed"
+	successMsg := "get nem list from api successfully"
+	var data []*nemNode
+	var nodes []*nemNode
+
+	var headers []string
+	var content [][]string
+
+	b, err := oss.nemServerGet(api)
+
+	if err != nil {
+		utils.ErrorPrintln(errorMsg, false)
+		return fmt.Errorf("%s, %v", errorMsg, err)
+	}
+
+	if err = json.Unmarshal(b, &data); err != nil {
+		oss.logger.Printf("decode nem list failed %v", err)
+		utils.ErrorPrintln("decode nem list failed", false)
+		return fmt.Errorf("decode nem list failed, %v", err)
+	}
+
+	utils.SuccessPrintln(successMsg)
+	if len(data) == 0 {
+		oss.logger.Printf("decode nem failed %v", err)
+		utils.ColorPrintln("nem list is empty", utils.Yellow)
+		return nil
+	}
+
+	for _, node := range data {
+		if node.CdsSN != "" {
+			nodes = append(nodes, node)
+		}
+	}
+
+	if len(nodes) == 0 {
+		utils.ColorPrintln("nem node list is empty", utils.Yellow)
+		return nil
+	}
+
+	headers = []string{"#", "HID", "Customer", "Node Name", "Node SN", "CDS SN"}
+
+	for index, node := range nodes {
+		index++
+		content = append(content, []string{
+			strconv.Itoa(index),
+			node.Hid,
+			node.CustomerName,
+			node.Name,
+			node.SN,
+			node.CdsSN,
+		})
+	}
+
+	utils.PrintTable(headers, content)
+
+	return nil
+}
+
 // ShowCDSDetail show all cds detail information
 func (oss *OSS) ShowCDSDetail(sn string) error {
 
@@ -676,6 +738,34 @@ func (oss *OSS) getSSHInfo(sn string, f bool) (company, sshHost string, sshPort 
 func (oss *OSS) get(api string) ([]byte, error) {
 
 	url := fmt.Sprintf("%s%s", oss.Host, api)
+	req, err := http.NewRequest("GET", url, nil)
+	oss.logger.Printf("start request api %s", url)
+	if err != nil {
+		return nil, fmt.Errorf("create new get request %s failed %v", api, err)
+	}
+
+	req.Header.Set("X-auth-token", oss.GetToken())
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := oss.HTTPClient.Do(req)
+
+	if err != nil {
+		oss.logger.Printf("request get %s failed %v", api, err)
+		return nil, fmt.Errorf("reqest get %s failed %v", api, err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		oss.logger.Printf("request get %s status %s", api, resp.Status)
+		return nil, fmt.Errorf("request get %s status %s", api, resp.Status)
+	}
+	return ioutil.ReadAll(resp.Body)
+}
+
+func (oss *OSS) nemServerGet(api string) ([]byte, error) {
+	host := strings.ReplaceAll(oss.Host, "oss", "nem")
+	url := fmt.Sprintf("%s%s", host, api)
 	req, err := http.NewRequest("GET", url, nil)
 	oss.logger.Printf("start request api %s", url)
 	if err != nil {
