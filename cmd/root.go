@@ -12,7 +12,6 @@ import (
 	"github.com/super1-chen/fxoss/app"
 	"github.com/super1-chen/fxoss/conf"
 	"github.com/super1-chen/fxoss/utils"
-	"github.com/super1-chen/fxoss/version"
 )
 
 var (
@@ -25,6 +24,7 @@ var (
 	timeout *int
 	frpc    *bool
 	pwd     *string
+	version string
 )
 
 var rootCmd = &cobra.Command{
@@ -83,12 +83,13 @@ var versionCmd = &cobra.Command{
 	Short: "Print the version number of fxoss",
 	Long:  `All software has versions. This is fxoss's`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("fxoss version is:", version.Version)
+		fmt.Println("fxoss version is:", version)
 	},
 }
 
 // Execute run the command tool
-func Execute() {
+func Execute(ver string) {
+	version = ver
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
