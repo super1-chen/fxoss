@@ -235,8 +235,9 @@ func (oss *OSS) ShowNemList() error {
 	api := "/v1/nem/lite/nem_node/pc"
 	errorMsg := "get nem list from api failed"
 	successMsg := "get nem list from api successfully"
-	var data []*nemNode
+
 	var nodes []*nemNode
+	var nodeList *nemNodeList
 
 	var headers []string
 	var content [][]string
@@ -248,20 +249,20 @@ func (oss *OSS) ShowNemList() error {
 		return fmt.Errorf("%s, %v", errorMsg, err)
 	}
 
-	if err = json.Unmarshal(b, &data); err != nil {
+	if err = json.Unmarshal(b, &nodeList); err != nil {
 		oss.logger.Printf("decode nem list failed %v", err)
 		utils.ErrorPrintln("decode nem list failed", false)
 		return fmt.Errorf("decode nem list failed, %v", err)
 	}
 
 	utils.SuccessPrintln(successMsg)
-	if len(data) == 0 {
+	if len(nodeList.List) == 0 {
 		oss.logger.Printf("decode nem failed %v", err)
 		utils.ColorPrintln("nem list is empty", utils.Yellow)
 		return nil
 	}
 
-	for _, node := range data {
+	for _, node := range nodeList.List {
 		if node.CdsSN != "" {
 			nodes = append(nodes, node)
 		}

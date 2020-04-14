@@ -116,3 +116,7 @@ type nemNode struct {
 	CdsSN        string `json:"cds_sn"`
 	CustomerName string `json:"customer_name"`
 }
+
+type nemNodeList struct {
+	List []*nemNode `jons:"list"`
+}
