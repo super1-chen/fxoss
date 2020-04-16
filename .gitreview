@@ -1,0 +1,4 @@
+[gerrit]
+host=gerrit.fxdata.cn
+port=29418
+project=cloud/fxoss-go
